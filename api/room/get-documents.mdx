@@ -1,0 +1,135 @@
+---
+title: 'getDocuments'
+description: "Retrieve all documents accessible to a user"
+---
+
+## Function Signature
+
+```typescript
+export const getDocuments = async (email: string) => Promise<{ data: Room[] } | undefined>
+```
+
+Retrieves all Liveblocks rooms (documents) that the specified user has access to. Returns both documents owned by the user and documents shared with them.
+
+## Parameters
+
+<ParamField path="email" type="string" required>
+  The email address of the user whose documents to retrieve. Must match the authenticated user's email for authorization.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="data" type="Room[]">
+  Array of room objects representing documents accessible to the user.
+  
+  <Expandable title="Room properties">
+    <ResponseField name="id" type="string">
+      Unique identifier for the document/room (nanoid)
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="RoomMetadata">
+      Document metadata including title, creator ID, and email
+      
+      <Expandable title="metadata properties">
+        <ResponseField name="title" type="string">
+          Document title (defaults to "Untitled")
+        </ResponseField>
+        
+        <ResponseField name="creatorId" type="string">
+          Clerk user ID of the document creator
+        </ResponseField>
+        
+        <ResponseField name="email" type="string">
+          Email address of the document creator
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO timestamp of document creation
+    </ResponseField>
+    
+    <ResponseField name="usersAccesses" type="RoomAccesses">
+      Object mapping user emails to their access levels (e.g., `["room:write"]` or `["room:read", "room:presence:write"]`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { getDocuments } from '@/lib/actions/room.actions';
+
+// Get all documents for a user
+const userEmail = 'user@example.com';
+const result = await getDocuments(userEmail);
+
+if (result) {
+  const documents = result.data;
+  
+  documents.forEach(doc => {
+    console.log(`Document: ${doc.metadata.title}`);
+    console.log(`Created: ${doc.createdAt}`);
+    console.log(`Room ID: ${doc.id}`);
+  });
+}
+```
+
+### Display Documents in UI
+
+From `app/(root)/page.tsx`:
+
+```typescript
+const Home = async () => {
+  const clerkUser = await currentUser();
+  const email = clerkUser.emailAddresses[0]?.emailAddress;
+  
+  const roomDocuments = await getDocuments(email);
+
+  return (
+    <ul className="document-ul">
+      {roomDocuments.data.map(({ id, metadata, createdAt }) => (
+        <li key={id}>
+          <Link href={`/documents/${id}`}>
+            <p>{metadata.title}</p>
+            <p>Created about {dateConverter(createdAt)}</p>
+          </Link>
+          <DeleteModal roomId={id} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Authorization
+
+<Warning>
+  The function validates that the requesting user's email matches the provided email parameter. This prevents users from accessing other users' document lists.
+</Warning>
+
+**Authentication check (line 107-111):**
+```typescript
+const currentEmail = await getCurrentUserEmail();
+
+if (!currentEmail || currentEmail !== email) {
+  throw new Error('Unauthorized to list documents');
+}
+```
+
+## Implementation Details
+
+- Uses Liveblocks `getRooms()` API with `userId` parameter set to the user's email
+- Returns documents where the user is either the creator or a collaborator
+- Results are serialized with `parseStringify()` for Next.js compatibility
+- Errors are logged but not re-thrown (returns `undefined` on error)
+
+## Related Functions
+
+- [createDocument](/api/room/create-document) - Create a new document
+- [getDocument](/api/room/get-document) - Get a single document by ID
+- [deleteDocument](/api/room/delete-document) - Delete a document
+
+## Source Reference
+
+`lib/actions/room.actions.ts:105-119`

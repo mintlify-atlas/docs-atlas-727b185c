@@ -1,0 +1,119 @@
+---
+title: 'AddDocumentBtn'
+description: 'Button component for creating new collaborative documents'
+---
+
+## Overview
+
+The `AddDocumentBtn` component provides a button that creates a new collaborative document and navigates the user to it. It's used on the home page to allow users to start new documents.
+
+## Props
+
+<ParamField path="userId" type="string" required>
+  The Clerk user ID of the authenticated user creating the document.
+</ParamField>
+
+<ParamField path="email" type="string" required>
+  The email address of the authenticated user. Used for document ownership and access control.
+</ParamField>
+
+## Features
+
+- **One-click creation**: Creates a new document and navigates to it automatically
+- **Responsive text**: Shows "Start a blank document" on desktop, icon-only on mobile
+- **Loading states**: Handles async document creation
+- **Error handling**: Logs errors if document creation fails
+- **Gradient styling**: Uses `gradient-blue` class for visual prominence
+
+## Usage Example
+
+### On Home Page
+
+From `app/(root)/page.tsx`:
+
+```typescript
+import AddDocumentBtn from '@/components/AddDocumentBtn';
+import { currentUser } from '@clerk/nextjs/server';
+
+const Home = async () => {
+  const clerkUser = await currentUser();
+  const email = clerkUser.emailAddresses[0]?.emailAddress;
+
+  return (
+    <div className="document-list-container">
+      <div className="document-list-title">
+        <h3>All documents</h3>
+        <AddDocumentBtn 
+          userId={clerkUser.id}
+          email={email}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+### In Empty State
+
+```typescript
+<div className="document-list-empty">
+  <Image 
+    src="/assets/icons/doc.svg"
+    alt="Document"
+    width={40}
+    height={40}
+  />
+  
+  <AddDocumentBtn 
+    userId={clerkUser.id}
+    email={email}
+  />
+</div>
+```
+
+## Implementation
+
+The component uses the `createDocument` server action and Next.js router for navigation:
+
+```typescript
+const addDocumentHandler = async () => {
+  try {
+    const room = await createDocument({ userId, email });
+    
+    if(room) router.push(`/documents/${room.id}`);
+  } catch (error) {
+    console.log(error)
+  }
+}
+```
+
+## Visual Elements
+
+- **Icon**: Plus icon from `/assets/icons/add.svg` (24x24px)
+- **Text**: "Start a blank document" (hidden on mobile via `sm:block`)
+- **Styling**: Blue gradient background with shadow (`gradient-blue flex gap-1 shadow-md`)
+
+## Type Definition
+
+From `types/index.d.ts`:
+
+```typescript
+declare type AddDocumentBtnProps = {
+  userId: string;
+  email: string;
+};
+```
+
+## Related Components
+
+- [DeleteModal](/api/components/delete-modal) - Delete documents
+- [CollaborativeRoom](/api/components/collaborative-room) - Document editing interface
+- [ShareModal](/api/components/share-modal) - Share documents with collaborators
+
+## Related Functions
+
+- [createDocument](/api/room/create-document) - Server action called by this component
+
+## Source Reference
+
+`components/AddDocumentBtn.tsx`

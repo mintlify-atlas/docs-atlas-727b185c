@@ -67,6 +67,7 @@
             "pages": [
               "api/room/create-document",
               "api/room/get-document",
+              "api/room/get-documents",
               "api/room/update-document",
               "api/room/delete-document",
               "api/room/share-document",
@@ -87,7 +88,10 @@
               "api/components/editor",
               "api/components/header",
               "api/components/share-modal",
-              "api/components/notifications"
+              "api/components/notifications",
+              "api/components/add-document-btn",
+              "api/components/delete-modal",
+              "api/components/active-collaborators"
             ]
           }
         ]

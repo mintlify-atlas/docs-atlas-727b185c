@@ -1,0 +1,166 @@
+---
+title: 'ActiveCollaborators'
+description: 'Display avatars of users currently active in a collaborative document'
+---
+
+## Overview
+
+The `ActiveCollaborators` component shows circular avatars of all users currently present in a Liveblocks room. It provides real-time presence awareness, displaying who else is viewing or editing the document.
+
+## Props
+
+This component takes no props. It automatically retrieves active collaborators from the Liveblocks room context using the `useOthers()` hook.
+
+## Features
+
+- **Real-time presence**: Automatically updates when users join or leave
+- **User avatars**: Displays circular profile images for each active user
+- **Color-coded borders**: Each user has a unique colored border (3px solid)
+- **Overlapping layout**: Uses negative margin (`-space-x-3`) for compact display
+- **Responsive**: Hidden on mobile (`.collaborators-list` has `hidden sm:flex`)
+
+## Usage Example
+
+### In CollaborativeRoom Header
+
+From `components/CollaborativeRoom.tsx`:
+
+```typescript
+import ActiveCollaborators from './ActiveCollaborators';
+import Header from '@/components/Header';
+
+<Header>
+  <div className="flex gap-2 sm:gap-3">
+    <ActiveCollaborators />
+    
+    <ShareModal 
+      roomId={roomId}
+      collaborators={users}
+      creatorId={roomMetadata.creatorId}
+      currentUserType={currentUserType}
+    />
+    
+    <UserButton />
+  </div>
+</Header>
+```
+
+### Standalone Usage
+
+```typescript
+import { ClientSideSuspense, RoomProvider } from '@liveblocks/react/suspense';
+import ActiveCollaborators from '@/components/ActiveCollaborators';
+
+<RoomProvider id={roomId}>
+  <ClientSideSuspense fallback={<div>Loading...</div>}>
+    <ActiveCollaborators />
+  </ClientSideSuspense>
+</RoomProvider>
+```
+
+## Implementation
+
+The component uses Liveblocks `useOthers()` hook to access presence data:
+
+```typescript
+import { useOthers } from '@liveblocks/react/suspense';
+
+const ActiveCollaborators = () => {
+  const others = useOthers();
+  const collaborators = others.map((other) => other.info);
+
+  return (
+    <ul className="collaborators-list">
+      {collaborators.map(({ id, avatar, name, color }) => (
+        <li key={id}>
+          <Image 
+            src={avatar}
+            alt={name}
+            width={100}
+            height={100}
+            className='inline-block size-8 rounded-full ring-2 ring-dark-100'
+            style={{border: `3px solid ${color}`}}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## User Info Structure
+
+Each collaborator object contains:
+
+- `id`: Unique user identifier
+- `avatar`: URL to user's profile image (from Clerk)
+- `name`: Full name of the user
+- `color`: Unique color assigned to the user (via `getUserColor()`)
+
+## Styling
+
+### Avatar Styling
+
+```css
+/* Size and shape */
+.size-8 rounded-full
+
+/* Border styling */
+ring-2 ring-dark-100
+border: 3px solid ${color} /* Dynamic per user */
+```
+
+### List Container
+
+From `app/globals.css`:
+
+```css
+.collaborators-list {
+  @apply hidden items-center justify-end -space-x-3 overflow-hidden sm:flex;
+}
+```
+
+## Liveblocks Integration
+
+<Note>
+  This component must be used within a `RoomProvider` and `ClientSideSuspense` wrapper to access Liveblocks presence data.
+</Note>
+
+The `useOthers()` hook provides:
+- Real-time updates when users join/leave
+- Access to each user's `info` object (set during authentication)
+- Automatic cleanup on component unmount
+
+## Color Assignment
+
+User colors are assigned in the Liveblocks auth endpoint:
+
+```typescript
+// app/api/liveblocks-auth/route.ts
+import { getUserColor } from '@/lib/utils';
+
+const user = {
+  info: {
+    id,
+    name: `${firstName} ${lastName}`,
+    email,
+    avatar: imageUrl,
+    color: getUserColor(id), // Deterministic color based on user ID
+  }
+}
+```
+
+## Related Components
+
+- [CollaborativeRoom](/api/components/collaborative-room) - Parent component that uses ActiveCollaborators
+- [ShareModal](/api/components/share-modal) - Shows all collaborators with permission management
+- [Header](/api/components/header) - Application header where ActiveCollaborators is typically displayed
+
+## Related Integrations
+
+- [Liveblocks](/integrations/liveblocks) - Real-time collaboration platform
+- [Clerk](/integrations/clerk) - User authentication and profile data
+
+## Source Reference
+
+`components/ActiveCollaborators.tsx`

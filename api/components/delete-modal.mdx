@@ -1,0 +1,144 @@
+---
+title: 'DeleteModal'
+description: 'Confirmation dialog for deleting collaborative documents'
+---
+
+## Overview
+
+The `DeleteModal` component displays a confirmation dialog before permanently deleting a document. It includes a warning message and requires explicit user confirmation to prevent accidental deletions.
+
+## Props
+
+<ParamField path="roomId" type="string" required>
+  The unique identifier of the document/room to delete.
+</ParamField>
+
+## Features
+
+- **Confirmation dialog**: Prevents accidental deletions with explicit confirmation
+- **Loading state**: Shows "Deleting..." text during deletion
+- **Error handling**: Catches and logs deletion errors
+- **Auto-redirect**: Automatically redirects to home after successful deletion (handled by `deleteDocument` action)
+- **Icon trigger**: Delete icon button that opens the modal
+- **Styled dialog**: Uses custom `shad-dialog` styling
+
+## Usage Example
+
+### In Document List
+
+From `app/(root)/page.tsx`:
+
+```typescript
+import { DeleteModal } from '@/components/DeleteModal';
+
+<ul className="document-ul">
+  {roomDocuments.data.map(({ id, metadata, createdAt }) => (
+    <li key={id} className="document-list-item">
+      <Link href={`/documents/${id}`}>
+        <p>{metadata.title}</p>
+      </Link>
+      <DeleteModal roomId={id} />
+    </li>
+  ))}
+</ul>
+```
+
+### In Editor Toolbar
+
+```typescript
+import { DeleteModal } from '@/components/DeleteModal';
+
+<div className="toolbar-wrapper">
+  <ToolbarPlugin />
+  {currentUserType === 'editor' && <DeleteModal roomId={roomId} />}
+</div>
+```
+
+## Dialog Structure
+
+The modal consists of:
+
+1. **Trigger**: Trash icon button
+2. **Header**: Delete icon and title
+3. **Description**: Warning message about permanent deletion
+4. **Footer**: Cancel and Delete buttons
+
+## Implementation
+
+```typescript
+const deleteDocumentHandler = async () => {
+  setLoading(true);
+
+  try {
+    await deleteDocument(roomId);
+    setOpen(false);
+  } catch (error) {
+    console.log("Error notif:", error);
+  }
+
+  setLoading(false);
+};
+```
+
+## Permissions
+
+<Warning>
+  Only users with write permissions (`room:write`) can delete documents. The `deleteDocument` server action enforces this authorization check.
+</Warning>
+
+The component can be rendered for any user, but the server action will reject deletion attempts from users without proper permissions.
+
+## Visual Elements
+
+### Trigger Button
+
+```typescript
+<Button className="min-w-9 rounded-xl bg-transparent p-2 transition-all">
+  <Image
+    src="/assets/icons/delete.svg"
+    alt="delete"
+    width={20}
+    height={20}
+  />
+</Button>
+```
+
+### Dialog Content
+
+- **Icon**: Delete modal icon (48x48px)
+- **Title**: "Delete document"
+- **Description**: Warning about permanent deletion
+- **Buttons**: 
+  - Cancel (dark background)
+  - Delete (red gradient, destructive variant)
+
+## State Management
+
+The component manages two local states:
+
+- `open`: Controls dialog visibility
+- `loading`: Tracks deletion in progress
+
+## Type Definition
+
+From `types/index.d.ts`:
+
+```typescript
+declare type DeleteModalProps = { 
+  roomId: string 
+};
+```
+
+## Related Components
+
+- [AddDocumentBtn](/api/components/add-document-btn) - Create new documents
+- [CollaborativeRoom](/api/components/collaborative-room) - Document editing interface
+- [ShareModal](/api/components/share-modal) - Share documents
+
+## Related Functions
+
+- [deleteDocument](/api/room/delete-document) - Server action called by this component
+
+## Source Reference
+
+`components/DeleteModal.tsx`

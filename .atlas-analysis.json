@@ -1,0 +1,104 @@
+{
+  "projectType": "saas",
+  "projectName": "Collaborative Editor",
+  "projectDescription": "A real-time collaborative document editor with user authentication, permissions, and inline comments",
+  "theme": "palm",
+  "primaryColor": "#3371FF",
+  "lightColor": "#417BFF",
+  "darkColor": "#09111F",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/real-time-collaboration",
+              "features/document-management",
+              "features/permissions",
+              "features/comments"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/clerk",
+              "integrations/liveblocks",
+              "integrations/lexical-editor"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/deployment",
+              "guides/environment-setup",
+              "guides/customization"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Room Actions",
+            "pages": [
+              "api/room/create-document",
+              "api/room/get-document",
+              "api/room/update-document",
+              "api/room/delete-document",
+              "api/room/share-document",
+              "api/room/remove-collaborator"
+            ]
+          },
+          {
+            "group": "User Actions",
+            "pages": [
+              "api/user/get-clerk-users",
+              "api/user/get-document-users"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "api/components/collaborative-room",
+              "api/components/editor",
+              "api/components/header",
+              "api/components/share-modal",
+              "api/components/notifications"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Real-time collaborative editing with Liveblocks and Lexical",
+    "User authentication and session management with Clerk",
+    "Document creation, sharing, and permission management",
+    "Inline and threaded comments with real-time notifications",
+    "Active collaborator presence indicators",
+    "Role-based access control (creator, editor, viewer)"
+  ],
+  "publicApiSurface": [
+    "createDocument(userId, email)",
+    "getDocument(roomId, userId)",
+    "updateDocument(roomId, title)",
+    "deleteDocument(roomId)",
+    "getDocuments(email)",
+    "updateDocumentAccess(roomId, email, userType, updatedBy)",
+    "removeCollaborator(roomId, email)",
+    "getClerkUsers(userIds)",
+    "getDocumentUsers(roomId, currentUser, text)"
+  ]
+}

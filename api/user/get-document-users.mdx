@@ -1,0 +1,126 @@
+---
+title: "getDocumentUsers"
+description: "Fetch users with access to a Liveblocks room/document"
+---
+
+## Overview
+
+The `getDocumentUsers` function retrieves a list of user email addresses that have access to a specific Liveblocks room (document). It supports optional text filtering and includes authorization checks.
+
+## Function Signature
+
+```typescript
+export const getDocumentUsers = async ({ 
+  roomId, 
+  currentUser, 
+  text 
+}: { 
+  roomId: string, 
+  currentUser: string, 
+  text: string 
+})
+```
+
+## Parameters
+
+<ParamField path="roomId" type="string" required>
+  The Liveblocks room ID representing the document
+</ParamField>
+
+<ParamField path="currentUser" type="string" required>
+  Email address of the current authenticated user. Used for authorization verification.
+</ParamField>
+
+<ParamField path="text" type="string" required>
+  Filter text to search for users. If empty string is provided, returns all users. The search is case-insensitive and matches email addresses containing the text.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="emails" type="string[] | undefined">
+  Array of email addresses for users with access to the room, excluding the current user. Returns `undefined` if an error occurs.
+  
+  - If `text` parameter is provided and has length > 0, returns filtered emails matching the search text
+  - If `text` is empty, returns all user emails with access to the room
+  - Current user's email is always excluded from results
+</ResponseField>
+
+## Code Example
+
+### Fetch All Document Users
+
+```typescript
+import { getDocumentUsers } from '@/lib/actions/user.actions';
+
+// Get all users with access to a document
+const documentUsers = await getDocumentUsers({
+  roomId: 'room-123',
+  currentUser: 'admin@example.com',
+  text: '' // Empty string returns all users
+});
+
+if (documentUsers) {
+  console.log('Document collaborators:', documentUsers);
+  // ['user1@example.com', 'user2@example.com', 'user3@example.com']
+}
+```
+
+### Filter Users by Text
+
+```typescript
+import { getDocumentUsers } from '@/lib/actions/user.actions';
+
+// Search for users containing 'john' in their email
+const filteredUsers = await getDocumentUsers({
+  roomId: 'room-123',
+  currentUser: 'admin@example.com',
+  text: 'john' // Case-insensitive search
+});
+
+if (filteredUsers) {
+  console.log('Matching users:', filteredUsers);
+  // ['john@example.com', 'johnny@example.com']
+}
+```
+
+## Error Handling
+
+The function handles errors gracefully and logs them to the console. It returns `undefined` when:
+
+- The current user is not authenticated
+- The `currentUser` parameter doesn't match the authenticated user's email
+- The Liveblocks room doesn't exist or cannot be accessed
+- Any other error occurs during execution
+
+<Warning>
+  This is a server action and must be called from server components or other server actions. The function verifies that the authenticated user matches the `currentUser` parameter for security.
+</Warning>
+
+## Authorization
+
+<Note>
+  The function performs two levels of authorization:
+  1. Checks if a user is currently authenticated via Clerk
+  2. Verifies that the authenticated user's email matches the `currentUser` parameter
+  
+  If either check fails, it throws an "Unauthorized to list document users" error.
+</Note>
+
+## Implementation Details
+
+- Uses `liveblocks.getRoom()` to fetch room data and access permissions
+- Extracts user emails from `room.usersAccesses` object keys
+- Excludes the current user from the results
+- Performs case-insensitive filtering when `text` is provided
+- Uses `parseStringify` utility for serialization
+
+## Use Cases
+
+- Displaying a list of document collaborators
+- Implementing user search/autocomplete in share dialogs
+- Filtering collaborators by email pattern
+- Managing document access permissions
+
+## Related
+
+- [getClerkUsers](/api/user/get-clerk-users) - Fetch detailed user information from Clerk

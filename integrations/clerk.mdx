@@ -1,0 +1,143 @@
+---
+title: 'Clerk Authentication'
+description: 'Learn how Clerk is integrated for user authentication and session management'
+---
+
+## Overview
+
+Clerk provides authentication and user management for the collaborative editor. It handles sign-in, sign-up, and session management with a customizable UI theme.
+
+## Installation
+
+The project uses the following Clerk packages:
+
+```json package.json
+"@clerk/nextjs": "^5.2.4",
+"@clerk/themes": "^2.1.12"
+```
+
+Install via npm:
+
+```bash
+npm install @clerk/nextjs @clerk/themes
+```
+
+## Environment Variables
+
+Add these environment variables to your `.env.local` file:
+
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
+CLERK_SECRET_KEY=your_secret_key
+```
+
+Get your keys from the [Clerk Dashboard](https://dashboard.clerk.com).
+
+## Configuration
+
+### Root Layout
+
+Clerk is initialized in `app/layout.tsx` with a custom dark theme:
+
+```tsx app/layout.tsx
+import { ClerkProvider } from "@clerk/nextjs"
+import { dark } from "@clerk/themes"
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+        variables: { 
+          colorPrimary: "#3371FF",
+          fontSize: '16px'
+        },
+      }}
+    >
+      <html lang="en" suppressHydrationWarning>
+        <body>
+          <Provider>
+            {children}
+          </Provider>
+        </body>
+      </html>
+    </ClerkProvider>
+  )
+}
+```
+
+The `ClerkProvider` wraps the entire application, enabling authentication throughout all routes.
+
+### Middleware
+
+Clerk middleware protects routes automatically:
+
+```ts middleware.ts
+import { clerkMiddleware } from "@clerk/nextjs/server";
+
+export default clerkMiddleware();
+
+export const config = {
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
+};
+```
+
+This matcher configuration ensures:
+- All routes are protected except static files
+- API routes require authentication
+- Next.js internals (`_next`) are excluded
+
+## Usage in the Application
+
+### Getting Current User
+
+Use `currentUser()` to retrieve authenticated user data server-side:
+
+```tsx
+import { currentUser } from "@clerk/nextjs/server";
+
+const clerkUser = await currentUser();
+
+if (!clerkUser) {
+  return new Response('Unauthorized', { status: 401 });
+}
+
+const { id, firstName, lastName, emailAddresses, imageUrl } = clerkUser;
+const email = emailAddresses[0]?.emailAddress;
+```
+
+This pattern is used in `app/api/liveblocks-auth/route.ts` to authenticate users for Liveblocks real-time collaboration.
+
+## Theme Customization
+
+The application uses Clerk's dark theme with custom branding:
+
+<CodeGroup>
+```tsx Primary Color
+variables: { 
+  colorPrimary: "#3371FF"
+}
+```
+
+```tsx Font Size
+variables: { 
+  fontSize: '16px'
+}
+```
+</CodeGroup>
+
+<Note>
+  The `#3371FF` blue matches the application's overall design system for a cohesive user experience.
+</Note>
+
+## Key Features
+
+- **Pre-built Components**: Sign-in, sign-up, and user profile UI
+- **Session Management**: Automatic token refresh and session handling
+- **Server-side Auth**: Secure user data retrieval via `currentUser()`
+- **Route Protection**: Middleware-based authentication
+- **Theme Consistency**: Dark mode with custom brand colors
+
+## Related Integrations
+
+Clerk user data is passed to Liveblocks for real-time collaboration. See [Liveblocks Integration](/integrations/liveblocks) for details.

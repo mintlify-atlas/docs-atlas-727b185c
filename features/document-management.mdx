@@ -1,0 +1,376 @@
+---
+title: 'Document Management'
+description: 'Creating, listing, updating, and deleting documents'
+---
+
+## Overview
+
+Document management is handled through server actions in `lib/actions/room.actions.ts`. Each document is represented as a Liveblocks "room" with metadata, access controls, and persistent storage.
+
+## Document Structure
+
+Each document (room) contains:
+
+```typescript
+interface Room {
+  id: string;                    // Unique room ID (nanoid)
+  metadata: {
+    creatorId: string;           // User ID who created it
+    email: string;               // Creator's email
+    title: string;               // Document title
+  };
+  usersAccesses: RoomAccesses;   // User permissions
+  defaultAccesses: string[];     // Default permissions for new users
+}
+```
+
+## Creating Documents
+
+Create a new document with automatic permission setup:
+
+```typescript lib/actions/room.actions.ts
+import { nanoid } from 'nanoid'
+import { liveblocks } from '../liveblocks';
+import { currentUser } from '@clerk/nextjs/server';
+
+export const createDocument = async ({ userId, email }: CreateDocumentParams) => {
+  const roomId = nanoid();
+
+  try {
+    const currentEmail = await getCurrentUserEmail();
+
+    if (!currentEmail || currentEmail !== email) {
+      throw new Error('Unauthorized to create document');
+    }
+
+    const metadata = {
+      creatorId: userId,
+      email,
+      title: 'Untitled'
+    }
+
+    const usersAccesses: RoomAccesses = {
+      [email]: ['room:write']
+    }
+
+    const room = await liveblocks.createRoom(roomId, {
+      metadata,
+      usersAccesses,
+      defaultAccesses: []
+    });
+    
+    revalidatePath('/');
+
+    return parseStringify(room);
+  } catch (error) {
+    console.log(`Error happened while creating a room: ${error}`);
+  }
+}
+```
+
+### How It Works
+
+1. **Generate ID** - Creates a unique room ID using nanoid
+2. **Verify User** - Ensures the requesting user is authenticated
+3. **Set Metadata** - Stores creator info and default title
+4. **Grant Access** - Gives creator full write permissions
+5. **Revalidate** - Refreshes the home page to show new document
+
+<Note>
+  New documents default to "Untitled" and grant the creator `room:write` access. No other users have access until explicitly shared.
+</Note>
+
+## Listing Documents
+
+Retrieve all documents a user has access to:
+
+```typescript lib/actions/room.actions.ts
+export const getDocuments = async (email: string) => {
+  try {
+    const currentEmail = await getCurrentUserEmail();
+
+    if (!currentEmail || currentEmail !== email) {
+      throw new Error('Unauthorized to list documents');
+    }
+
+    const rooms = await liveblocks.getRooms({ userId: email });
+    
+    return parseStringify(rooms);
+  } catch (error) {
+    console.log(`Error happened while getting rooms: ${error}`);
+  }
+}
+```
+
+This returns:
+- All rooms where the user has any level of access
+- Sorted by most recently modified (Liveblocks default)
+- Includes full metadata and permission info
+
+## Getting a Single Document
+
+Retrieve a specific document with access validation:
+
+```typescript lib/actions/room.actions.ts
+export const getDocument = async ({ roomId, userId }: { roomId: string; userId: string }) => {
+  try {
+    const currentEmail = await getCurrentUserEmail();
+
+    if (!currentEmail || currentEmail !== userId) {
+      throw new Error('Unauthorized to access this document');
+    }
+
+    const room = await liveblocks.getRoom(roomId);
+    
+    const hasAccess = Object.keys(room.usersAccesses).includes(userId);
+    
+    if(!hasAccess) {
+      throw new Error('You do not have access to this document');
+    }
+    
+    return parseStringify(room);
+  } catch (error) {
+    console.log(`Error happened while getting a room: ${error}`);
+  }
+}
+```
+
+### Security Checks
+
+1. Verify the current session matches the requested user
+2. Fetch the room from Liveblocks
+3. Check if user exists in `usersAccesses`
+4. Return error if access denied
+
+## Updating Document Titles
+
+Edit document titles with permission validation:
+
+```typescript lib/actions/room.actions.ts
+export const updateDocument = async (roomId: string, title: string) => {
+  try {
+    const currentEmail = await getCurrentUserEmail();
+
+    if (!currentEmail) {
+      throw new Error('Unauthorized to update document');
+    }
+
+    const room = await liveblocks.getRoom(roomId);
+    const access = room.usersAccesses[currentEmail] ?? [];
+
+    if (!access.includes('room:write')) {
+      throw new Error('Insufficient permissions to update document');
+    }
+
+    const updatedRoom = await liveblocks.updateRoom(roomId, {
+      metadata: {
+        title
+      }
+    })
+
+    revalidatePath(`/documents/${roomId}`);
+
+    return parseStringify(updatedRoom);
+  } catch (error) {
+    console.log(`Error happened while updating a room: ${error}`);
+  }
+}
+```
+
+### UI Implementation
+
+The collaborative room provides inline title editing:
+
+```tsx components/CollaborativeRoom.tsx
+const CollaborativeRoom = ({ roomId, roomMetadata, currentUserType }) => {
+  const [documentTitle, setDocumentTitle] = useState(roomMetadata.title);
+  const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const updateTitleHandler = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if(e.key === 'Enter') {
+      setLoading(true);
+
+      try {
+        if(documentTitle !== roomMetadata.title) {
+          const updatedDocument = await updateDocument(roomId, documentTitle);
+          
+          if(updatedDocument) {
+            setEditing(false);
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      }
+
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {editing && !loading ? (
+        <Input 
+          type="text"
+          value={documentTitle}
+          placeholder="Enter title"
+          onChange={(e) => setDocumentTitle(e.target.value)}
+          onKeyDown={updateTitleHandler}
+          className="document-title-input"
+        />
+      ) : (
+        <p className="document-title">{documentTitle}</p>
+      )}
+
+      {currentUserType === 'editor' && !editing && (
+        <Image 
+          src="/assets/icons/edit.svg"
+          alt="edit"
+          width={24}
+          height={24}
+          onClick={() => setEditing(true)}
+          className="pointer"
+        />
+      )}
+
+      {currentUserType !== 'editor' && (
+        <p className="view-only-tag">View only</p>
+      )}
+
+      {loading && <p className="text-sm text-gray-400">saving...</p>}
+    </div>
+  )
+}
+```
+
+### Features
+
+<Tabs>
+  <Tab title="Inline Editing">
+    - Click edit icon to enter edit mode
+    - Press Enter to save changes
+    - Click outside to cancel
+    - Shows "saving..." indicator during update
+  </Tab>
+  
+  <Tab title="Permission Gating">
+    - Edit icon only visible to users with `editor` role
+    - Viewers see "View only" tag
+    - Server validates `room:write` permission
+    - Prevents unauthorized modifications
+  </Tab>
+  
+  <Tab title="Auto-save">
+    - Saves on Enter key press
+    - Saves on blur (clicking outside)
+    - Only saves if title changed
+    - Optimistic UI updates
+  </Tab>
+</Tabs>
+
+## Deleting Documents
+
+Permanently delete a document:
+
+```typescript lib/actions/room.actions.ts
+export const deleteDocument = async (roomId: string) => {
+  try {
+    const currentEmail = await getCurrentUserEmail();
+
+    if (!currentEmail) {
+      throw new Error('Unauthorized to delete document');
+    }
+
+    const room = await liveblocks.getRoom(roomId);
+    const access = room.usersAccesses[currentEmail] ?? [];
+
+    if (!access.includes('room:write')) {
+      throw new Error('Insufficient permissions to delete document');
+    }
+
+    await liveblocks.deleteRoom(roomId);
+    revalidatePath('/');
+    redirect('/');
+  } catch (error) {
+    console.log(`Error happened while deleting a room: ${error}`);
+  }
+}
+```
+
+<Warning>
+  Deleting a document is permanent and cannot be undone. All content, comments, and access history are permanently removed from Liveblocks.
+</Warning>
+
+### Security Requirements
+
+- Requires `room:write` permission
+- Only users with write access can delete
+- Automatically redirects to home after deletion
+- Revalidates document list
+
+## Helper Functions
+
+### Get Current User Email
+
+Used throughout room actions for authentication:
+
+```typescript lib/actions/room.actions.ts
+const getCurrentUserEmail = async () => {
+  const clerkUser = await currentUser();
+
+  if (!clerkUser) {
+    return null;
+  }
+
+  return clerkUser.emailAddresses[0]?.emailAddress ?? null;
+};
+```
+
+### Parse and Stringify
+
+Safely serialize Liveblocks responses:
+
+```typescript lib/utils.ts
+export const parseStringify = (value: any) => JSON.parse(JSON.stringify(value));
+```
+
+This ensures:
+- Removes non-serializable data
+- Compatible with Next.js server actions
+- Safe for client-side consumption
+
+## Error Handling
+
+All document operations follow a consistent error handling pattern:
+
+```typescript
+try {
+  // 1. Authenticate user
+  const currentEmail = await getCurrentUserEmail();
+  if (!currentEmail) {
+    throw new Error('Unauthorized');
+  }
+
+  // 2. Validate permissions
+  const room = await liveblocks.getRoom(roomId);
+  const access = room.usersAccesses[currentEmail] ?? [];
+  if (!access.includes('room:write')) {
+    throw new Error('Insufficient permissions');
+  }
+
+  // 3. Perform operation
+  const result = await liveblocks.someOperation();
+
+  // 4. Revalidate cache
+  revalidatePath('/');
+
+  return parseStringify(result);
+} catch (error) {
+  console.log(`Error: ${error}`);
+  // Error is logged but not thrown to client
+}
+```
+
+<Note>
+  Errors are logged server-side but not exposed to clients. This prevents leaking sensitive information about room structure or permissions.
+</Note>

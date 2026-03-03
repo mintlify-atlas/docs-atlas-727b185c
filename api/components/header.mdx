@@ -1,0 +1,176 @@
+---
+title: 'Header'
+description: 'Application header component with responsive logo and flexible content area'
+---
+
+## Overview
+
+The `Header` component provides a consistent header layout across the application. It displays the application logo with responsive behavior and accepts children for custom header content.
+
+## Props
+
+<ParamField path="children" type="React.ReactNode" required>
+  Content to render in the header alongside the logo. Typically includes user controls, document title, collaborators, and action buttons.
+</ParamField>
+
+<ParamField path="className" type="string">
+  Optional CSS classes to apply to the header. Merged with default header styles using `cn()` utility.
+</ParamField>
+
+## Features
+
+- **Responsive Logo**: Shows full logo on desktop (md+), icon-only on mobile
+- **Flexible Layout**: Accepts any children for custom header content
+- **Home Navigation**: Logo links to homepage ('/') 
+- **Utility Styling**: Uses className merging for easy customization
+
+## Usage Example
+
+### Basic Usage
+
+```tsx
+import Header from '@/components/Header';
+
+function App() {
+  return (
+    <Header>
+      <div className="flex gap-2">
+        <UserButton />
+        <NotificationBell />
+      </div>
+    </Header>
+  );
+}
+```
+
+### With Custom Styling
+
+```tsx
+<Header className="border-b border-gray-200">
+  <nav className="flex items-center gap-4">
+    <a href="/docs">Docs</a>
+    <a href="/settings">Settings</a>
+  </nav>
+</Header>
+```
+
+### In CollaborativeRoom
+
+```tsx
+<Header>
+  <div className="flex w-fit items-center gap-2">
+    {/* Document title editing */}
+    <Input value={title} onChange={handleChange} />
+  </div>
+  <div className="flex w-full flex-1 justify-end gap-2">
+    <ActiveCollaborators />
+    <ShareModal {...shareProps} />
+    <UserButton />
+  </div>
+</Header>
+```
+
+## TypeScript Interface
+
+```typescript
+type HeaderProps = {
+  children: React.ReactNode;
+  className?: string;
+};
+```
+
+## Component Structure
+
+```tsx
+<div className={cn("header", className)}>
+  <Link href="/" className="md:flex-1">
+    {/* Desktop: Full logo (120x32) */}
+    <Image src="/assets/icons/logo.svg" className="hidden md:block" />
+    
+    {/* Mobile: Icon only (32x32) */}
+    <Image src="/assets/icons/logo-icon.svg" className="mr-2 md:hidden" />
+  </Link>
+  
+  {children}
+</div>
+```
+
+## Responsive Behavior
+
+### Desktop (md breakpoint and up)
+- Shows full logo (120px x 32px)
+- Logo container takes up flex-1 space
+- Children render in remaining space
+
+### Mobile (below md breakpoint)
+- Shows compact icon logo (32px x 32px)
+- Icon has right margin (mr-2)
+- Children render alongside icon
+
+## Styling
+
+The component uses:
+
+- **Base class**: `.header` - Applied by default
+- **Custom classes**: Passed via `className` prop
+- **Utility**: `cn()` function for class name merging
+
+### Example Custom Styles
+
+```tsx
+// Add border
+<Header className="border-b">
+
+// Change background
+<Header className="bg-gray-900">
+
+// Adjust padding
+<Header className="px-8 py-4">
+```
+
+## Logo Assets
+
+Required logo files:
+
+- `/assets/icons/logo.svg` - Full logo for desktop
+- `/assets/icons/logo-icon.svg` - Icon-only for mobile
+
+## Common Patterns
+
+### Document Header
+
+```tsx
+<Header>
+  <div className="flex w-fit items-center gap-2">
+    <DocumentTitle />
+    <EditButton />
+  </div>
+  <div className="flex justify-end gap-3">
+    <Collaborators />
+    <ShareButton />
+    <UserMenu />
+  </div>
+</Header>
+```
+
+### Simple App Header
+
+```tsx
+<Header>
+  <nav className="flex flex-1 justify-end">
+    <Button>Sign In</Button>
+  </nav>
+</Header>
+```
+
+## Accessibility
+
+- Logo link includes descriptive alt text
+- Clickable logo area provides navigation to home
+- Semantic HTML structure with proper landmarks
+
+## Related Components
+
+- [CollaborativeRoom](/api/components/collaborative-room) - Uses Header for document pages
+- ActiveCollaborators - Often rendered as Header children
+- [ShareModal](/api/components/share-modal) - Common Header child component

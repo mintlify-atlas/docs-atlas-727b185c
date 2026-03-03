@@ -1,0 +1,272 @@
+---
+title: Environment Setup
+description: Configure environment variables for local development and production
+---
+
+This guide covers all environment variables needed to run the collaborative editor application.
+
+## Overview
+
+The application requires environment variables for:
+
+- **Clerk** - User authentication and management
+- **Liveblocks** - Real-time collaboration features
+- **Sentry** - Error monitoring (optional)
+
+<Note>
+  Environment variables prefixed with `NEXT_PUBLIC_` are exposed to the browser. Keep secret keys private by NOT using this prefix.
+</Note>
+
+## Required Environment Variables
+
+### Clerk Authentication
+
+Clerk handles user authentication, session management, and user profiles.
+
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+```
+
+#### How to Get Clerk Keys
+
+<Steps>
+  <Step title="Create Clerk Application">
+    1. Go to [clerk.com](https://clerk.com) and sign up
+    2. Create a new application
+    3. Choose your authentication methods (Email, Google, GitHub, etc.)
+  </Step>
+
+  <Step title="Get API Keys">
+    1. Navigate to **API Keys** in the Clerk Dashboard
+    2. Copy your **Publishable Key** → `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+    3. Copy your **Secret Key** → `CLERK_SECRET_KEY`
+  </Step>
+
+  <Step title="Configure Redirect URLs">
+    In Clerk Dashboard → Settings → Paths:
+    
+    **For Local Development:**
+    - Sign-in URL: `http://localhost:3000/sign-in`
+    - Sign-up URL: `http://localhost:3000/sign-up`
+    - After sign-in URL: `http://localhost:3000`
+    
+    **For Production:**
+    - Replace `localhost:3000` with your production domain
+  </Step>
+</Steps>
+
+<Warning>
+  Never commit `CLERK_SECRET_KEY` to version control. This key grants full access to your user data.
+</Warning>
+
+### Liveblocks Collaboration
+
+Liveblocks powers the real-time collaboration features including presence, comments, and document sync.
+
+```bash
+LIVEBLOCKS_SECRET_KEY=sk_...
+NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY=pk_...
+```
+
+#### How to Get Liveblocks Keys
+
+<Steps>
+  <Step title="Create Liveblocks Project">
+    1. Go to [liveblocks.io](https://liveblocks.io) and sign up
+    2. Create a new project
+    3. Choose the appropriate plan (Free tier available)
+  </Step>
+
+  <Step title="Get API Keys">
+    1. Navigate to **API Keys** in your Liveblocks project
+    2. Copy your **Secret Key** → `LIVEBLOCKS_SECRET_KEY`
+    3. Copy your **Public Key** → `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY`
+  </Step>
+</Steps>
+
+<Note>
+  The secret key is used server-side in `lib/liveblocks.ts:4` to authenticate users via the `/api/liveblocks-auth` endpoint.
+</Note>
+
+## Optional Environment Variables
+
+### Sentry Error Monitoring
+
+Sentry provides error tracking and performance monitoring for production applications.
+
+```bash
+SENTRY_DSN=https://...@sentry.io/...
+SENTRY_ORG=your-org-name
+SENTRY_PROJECT=your-project-name
+SENTRY_AUTH_TOKEN=your-auth-token
+```
+
+#### How to Get Sentry Configuration
+
+<Steps>
+  <Step title="Create Sentry Project">
+    1. Go to [sentry.io](https://sentry.io) and sign up
+    2. Create a new project
+    3. Select **Next.js** as the platform
+  </Step>
+
+  <Step title="Get DSN">
+    1. Go to **Settings** → **Projects** → Your Project
+    2. Click on **Client Keys (DSN)**
+    3. Copy the DSN → `SENTRY_DSN`
+  </Step>
+
+  <Step title="Get Organization & Project Names">
+    - `SENTRY_ORG`: Found in Settings → General Settings → Organization Slug
+    - `SENTRY_PROJECT`: Your project name (slug)
+  </Step>
+
+  <Step title="Create Auth Token">
+    1. Go to **Settings** → **Auth Tokens**
+    2. Create a new token with `project:releases` and `org:read` scopes
+    3. Copy the token → `SENTRY_AUTH_TOKEN`
+  </Step>
+</Steps>
+
+<Note>
+  The application is pre-configured with Sentry (`sentry.server.config.ts:8`). The DSN is hardcoded, so you may want to replace it with your own or use the environment variable pattern.
+</Note>
+
+## Local Development Setup
+
+### Creating .env.local File
+
+Create a `.env.local` file in the root of your project:
+
+```bash
+# .env.local
+
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+# Liveblocks Collaboration  
+LIVEBLOCKS_SECRET_KEY=sk_...
+NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY=pk_...
+
+# Sentry (Optional)
+SENTRY_DSN=https://...@sentry.io/...
+SENTRY_ORG=your-org
+SENTRY_PROJECT=your-project
+SENTRY_AUTH_TOKEN=your-token
+```
+
+<Warning>
+  Add `.env.local` to your `.gitignore` file to prevent committing secrets to version control.
+</Warning>
+
+### Running Locally
+
+After setting up your environment variables:
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`.
+
+## Production Setup
+
+### Vercel Deployment
+
+For Vercel deployments:
+
+1. Go to your project settings in Vercel
+2. Navigate to **Environment Variables**
+3. Add each variable with the appropriate value
+4. Select the environment (Production, Preview, Development)
+
+### Other Platforms
+
+For other hosting platforms:
+
+- **Netlify**: Use the Environment Variables section in Site Settings
+- **Railway**: Use the Variables tab in your project
+- **Docker**: Use a `.env` file or pass via `docker run -e`
+
+## Environment-Specific Configuration
+
+### Development vs Production
+
+The application behaves differently based on environment:
+
+**Development (`npm run dev`):**
+- Uses test/development API keys from Clerk
+- Sentry debug mode can be enabled (`sentry.server.config.ts:14`)
+- Hot module reloading enabled
+- Detailed error messages
+
+**Production (`npm run build && npm start`):**
+- Uses production API keys
+- Source maps uploaded to Sentry
+- Optimized builds with code splitting
+- Error boundaries active
+
+## Verifying Configuration
+
+### Check Clerk Integration
+
+1. Start your development server
+2. Navigate to `http://localhost:3000`
+3. You should see Clerk's authentication UI
+4. Try signing in/up to verify the keys work
+
+### Check Liveblocks Integration
+
+1. Sign in to the application
+2. Create a new document
+3. Open the browser console and check for Liveblocks connection messages
+4. No authentication errors should appear
+
+### Check Sentry Integration
+
+1. Trigger an error in development
+2. Check the Sentry dashboard for the error event
+3. Verify source maps are working (you see original code, not minified)
+
+## Troubleshooting
+
+### "Unauthorized" Errors
+
+- Verify `CLERK_SECRET_KEY` is set correctly
+- Check that the key matches your environment (test vs production)
+- Ensure the key hasn't expired or been rotated
+
+### Liveblocks Connection Failures
+
+- Confirm `LIVEBLOCKS_SECRET_KEY` is set (required in `lib/liveblocks.ts:4`)
+- Verify the public key matches the secret key's project
+- Check Liveblocks dashboard for API usage limits
+
+### Environment Variables Not Loading
+
+- Restart your development server after adding new variables
+- Verify `.env.local` is in the project root directory
+- Check for typos in variable names
+- Ensure `NEXT_PUBLIC_` prefix for client-side variables
+
+<Note>
+  Next.js only loads environment variables on server start. You must restart `npm run dev` after changing `.env.local`.
+</Note>
+
+## Security Best Practices
+
+1. **Never commit secrets**: Add `.env.local` to `.gitignore`
+2. **Rotate keys regularly**: Update API keys every 3-6 months
+3. **Use separate keys**: Different keys for development and production
+4. **Limit key permissions**: Use the minimum required scopes
+5. **Monitor usage**: Check dashboards for unusual activity
+
+<Warning>
+  If you accidentally commit secrets, immediately rotate the keys in their respective dashboards.
+</Warning>

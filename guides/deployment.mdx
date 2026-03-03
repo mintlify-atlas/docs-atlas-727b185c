@@ -1,0 +1,199 @@
+---
+title: Deployment Guide
+description: Deploy your collaborative editor to production
+---
+
+This guide walks you through deploying your collaborative editor application to production.
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+- A Clerk account with API keys configured
+- A Liveblocks account with secret and public keys
+- (Optional) A Sentry account for error monitoring
+- Node.js 18+ installed locally
+- Git repository set up
+
+<Warning>
+  Make sure all environment variables are configured before deploying. Missing variables will cause runtime errors.
+</Warning>
+
+## Environment Variables
+
+Your application requires the following environment variables:
+
+### Required Variables
+
+```bash
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+# Liveblocks Collaboration
+LIVEBLOCKS_SECRET_KEY=sk_...
+NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY=pk_...
+```
+
+### Optional Variables
+
+```bash
+# Sentry Error Monitoring (Optional)
+SENTRY_DSN=https://...@sentry.io/...
+SENTRY_ORG=your-org
+SENTRY_PROJECT=your-project
+SENTRY_AUTH_TOKEN=your-auth-token
+```
+
+<Note>
+  The application uses Sentry for error tracking in production. While optional, it's highly recommended for monitoring application health.
+</Note>
+
+## Build Process
+
+The application uses Next.js 14 with the following build scripts defined in `package.json:5-9`:
+
+<Steps>
+  <Step title="Install Dependencies">
+    ```bash
+    npm install
+    ```
+    
+    This installs all required packages including:
+    - `@clerk/nextjs` (v5.2.4) - Authentication
+    - `@liveblocks/client`, `@liveblocks/react`, `@liveblocks/react-lexical` (v2.3.0) - Real-time collaboration
+    - `@sentry/nextjs` (v8.18.0) - Error monitoring
+    - `lexical` and `@lexical/react` (v0.16.1) - Rich text editor
+  </Step>
+
+  <Step title="Run Build">
+    ```bash
+    npm run build
+    ```
+    
+    This executes `next build` which:
+    - Compiles TypeScript (with `ignoreBuildErrors: true` set in `next.config.mjs:4-6`)
+    - Optimizes assets and images
+    - Uploads source maps to Sentry (if configured)
+    - Generates production-ready static and server files
+  </Step>
+
+  <Step title="Test Production Build Locally">
+    ```bash
+    npm start
+    ```
+    
+    This runs the production server locally on `http://localhost:3000` to verify the build works correctly.
+  </Step>
+</Steps>
+
+## Deployment Platforms
+
+### Vercel (Recommended)
+
+Vercel is the recommended platform for Next.js applications and offers seamless deployment.
+
+<Steps>
+  <Step title="Connect Repository">
+    1. Go to [vercel.com](https://vercel.com) and sign in
+    2. Click "Add New Project"
+    3. Import your Git repository
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    In the Vercel project settings, add all required environment variables:
+    
+    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+    - `CLERK_SECRET_KEY`
+    - `LIVEBLOCKS_SECRET_KEY`
+    - `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY`
+    - `SENTRY_DSN` (optional)
+    - `SENTRY_AUTH_TOKEN` (optional)
+  </Step>
+
+  <Step title="Configure Build Settings">
+    Vercel auto-detects Next.js projects. Verify these settings:
+    
+    - **Build Command**: `npm run build`
+    - **Output Directory**: `.next`
+    - **Install Command**: `npm install`
+    - **Node Version**: 18.x or higher
+  </Step>
+
+  <Step title="Deploy">
+    Click "Deploy" and Vercel will:
+    
+    - Install dependencies
+    - Run the build process
+    - Deploy to a production URL
+    - Enable automatic deployments on git push
+  </Step>
+</Steps>
+
+<Note>
+  The application is configured with Sentry integration (`next.config.mjs:12-45`) that automatically uploads source maps during Vercel builds when `SENTRY_AUTH_TOKEN` is set.
+</Note>
+
+### Other Platforms
+
+You can also deploy to:
+
+- **Netlify**: Use the Next.js runtime plugin
+- **Railway**: Connect your repo and set environment variables
+- **Self-hosted**: Use `npm start` after building, or use a process manager like PM2
+
+## Post-Deployment Configuration
+
+### Clerk Redirect URLs
+
+After deploying, update your Clerk application settings:
+
+1. Go to Clerk Dashboard → Your Application → Settings
+2. Add your production URL to:
+   - **Authorized Redirect URLs**: `https://yourdomain.com`
+   - **Sign-in URL**: `https://yourdomain.com/sign-in`
+   - **Sign-up URL**: `https://yourdomain.com/sign-up`
+
+### Image Optimization
+
+The application is configured to allow images from Clerk (`next.config.mjs:7-9`):
+
+```javascript
+images: {
+  remotePatterns: [{ protocol: 'https', hostname: 'img.clerk.com' }]
+}
+```
+
+If you need to add additional image domains, update this configuration.
+
+### Monitoring
+
+If using Sentry:
+
+1. Check the Sentry dashboard for any deployment errors
+2. Verify source maps are uploaded correctly
+3. Monitor error rates and performance metrics
+
+## Troubleshooting
+
+### Build Fails
+
+- Verify all environment variables are set correctly
+- Check that Node.js version is 18 or higher
+- Review build logs for specific errors
+
+### Runtime Errors
+
+- Ensure `LIVEBLOCKS_SECRET_KEY` is set (`lib/liveblocks.ts:4` requires this)
+- Verify Clerk middleware is configured (`middleware.ts:1-7`)
+- Check Sentry for detailed error traces
+
+### Authentication Issues
+
+- Confirm Clerk redirect URLs match your production domain
+- Verify `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are correct
+- Check Clerk dashboard for API key status
+
+<Warning>
+  The TypeScript build errors are ignored in production (`ignoreBuildErrors: true`). Consider fixing type errors before deploying to avoid runtime issues.
+</Warning>

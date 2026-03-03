@@ -1,0 +1,114 @@
+---
+title: 'getDocument'
+description: 'Retrieve a collaborative document by room ID'
+---
+
+## Function Signature
+
+```typescript
+export const getDocument = async ({ roomId, userId }: { roomId: string; userId: string }) => Promise<Room | undefined>
+```
+
+Retrieves a collaborative document room by its ID, with access control verification to ensure the user has permission to view the document.
+
+## Parameters
+
+<ParamField path="roomId" type="string" required>
+  The unique identifier of the document room to retrieve.
+</ParamField>
+
+<ParamField path="userId" type="string" required>
+  The user ID (email) of the user requesting access to the document. Must match the authenticated user's email.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="room" type="Room | undefined">
+  Returns the room object with metadata and access configuration, or undefined if an error occurs.
+  
+  <Expandable title="Room Properties">
+    <ResponseField name="id" type="string">
+      Unique room identifier
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="RoomMetadata">
+      Room metadata containing:
+      - `creatorId`: User ID of the document creator
+      - `email`: Creator's email address
+      - `title`: Document title
+    </ResponseField>
+    
+    <ResponseField name="usersAccesses" type="RoomAccesses">
+      Access control mapping showing all users with access and their permission levels.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { getDocument } from '@/lib/actions/room.actions';
+
+const loadDocument = async (roomId: string) => {
+  const document = await getDocument({
+    roomId: roomId,
+    userId: 'user@example.com'
+  });
+  
+  if (document) {
+    console.log('Document title:', document.metadata.title);
+    console.log('Has access:', Object.keys(document.usersAccesses));
+  }
+};
+```
+
+## Error Handling
+
+The function performs two levels of authorization:
+
+<Warning>
+  **Authentication Check**: Verifies the authenticated user's email matches the provided userId.
+</Warning>
+
+```typescript
+// Error: "Unauthorized to access this document"
+if (!currentEmail || currentEmail !== userId) {
+  throw new Error('Unauthorized to access this document');
+}
+```
+
+<Warning>
+  **Access Control Check**: Verifies the user has explicit access to the room.
+</Warning>
+
+```typescript
+// Error: "You do not have access to this document"
+const hasAccess = Object.keys(room.usersAccesses).includes(userId);
+if (!hasAccess) {
+  throw new Error('You do not have access to this document');
+}
+```
+
+## Security
+
+<Note>
+  This function implements dual-layer security:
+  1. Validates the authenticated user matches the requesting user
+  2. Checks the user exists in the room's access control list
+</Note>
+
+## Implementation Details
+
+- **Access Verification**: Checks if userId exists in `room.usersAccesses` keys
+- **Email Validation**: Compares authenticated email with userId parameter
+- **No Side Effects**: This is a read-only operation with no cache revalidation
+
+## Related Functions
+
+- [`createDocument`](/api/room/create-document) - Create a new document
+- [`updateDocument`](/api/room/update-document) - Update document metadata
+- [`updateDocumentAccess`](/api/room/share-document) - Manage document access
+
+## Source
+
+Defined in `lib/actions/room.actions.ts:54`

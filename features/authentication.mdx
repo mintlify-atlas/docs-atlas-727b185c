@@ -1,0 +1,220 @@
+---
+title: 'Authentication'
+description: 'User authentication and session management with Clerk'
+---
+
+## Overview
+
+The Collaborative Editor uses [Clerk](https://clerk.com) for secure, production-ready authentication. Clerk provides a complete authentication solution with pre-built UI components, session management, and middleware protection.
+
+## How Authentication Works
+
+Authentication is implemented through three key components:
+
+1. **Clerk Middleware** - Protects routes and manages sessions
+2. **Auth Pages** - Pre-built sign-in and sign-up interfaces
+3. **Auth Endpoint** - Integrates Clerk with Liveblocks for real-time features
+
+### Middleware Protection
+
+The application uses Clerk middleware to protect all routes automatically:
+
+```typescript middleware.ts
+import { clerkMiddleware } from "@clerk/nextjs/server";
+
+export default clerkMiddleware();
+
+export const config = {
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
+};
+```
+
+This configuration:
+- Protects all pages except static assets and Next.js internals
+- Automatically redirects unauthenticated users to sign-in
+- Maintains session state across the application
+
+## Sign-In/Sign-Up Flow
+
+Clerk provides pre-built, customizable authentication pages:
+
+<CodeGroup>
+
+```tsx app/(auth)/sign-in/[[...sign-in]]/page.tsx
+import { SignIn } from '@clerk/nextjs'
+
+const SignInPage = () => {
+  return (
+    <main className="auth-page">
+      <SignIn />
+    </main>
+  )
+}
+
+export default SignInPage
+```
+
+```tsx app/(auth)/sign-up/[[...sign-up]]/page.tsx
+import { SignUp } from '@clerk/nextjs'
+
+const SignUpPage = () => {
+  return (
+    <main className="auth-page">
+      <SignUp />
+    </main>
+  )
+}
+
+export default SignUpPage
+```
+
+</CodeGroup>
+
+The `[[...sign-in]]` and `[[...sign-up]]` catch-all routes allow Clerk to handle multi-step authentication flows (email verification, 2FA, etc.).
+
+## Session Management
+
+Clerk automatically manages user sessions with secure HTTP-only cookies. Access the current user anywhere in your application:
+
+### Server Components
+
+```typescript
+import { currentUser } from '@clerk/nextjs/server';
+
+const clerkUser = await currentUser();
+
+if (!clerkUser) {
+  return new Response('Unauthorized', { status: 401 });
+}
+
+const { id, firstName, lastName, emailAddresses, imageUrl } = clerkUser;
+const email = emailAddresses[0]?.emailAddress;
+```
+
+### Client Components
+
+```tsx
+import { useUser } from '@clerk/nextjs';
+
+const { user: clerkUser } = useUser();
+const email = clerkUser?.emailAddresses[0]?.emailAddress;
+```
+
+## Integration with Liveblocks
+
+The application integrates Clerk authentication with Liveblocks for real-time collaboration:
+
+```typescript app/api/liveblocks-auth/route.ts
+import { liveblocks } from "@/lib/liveblocks";
+import { getUserColor } from "@/lib/utils";
+import { currentUser } from "@clerk/nextjs/server";
+
+export async function POST(request: Request) {
+  const clerkUser = await currentUser();
+
+  if (!clerkUser) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  const { id, firstName, lastName, emailAddresses, imageUrl } = clerkUser;
+  const email = emailAddresses[0]?.emailAddress;
+
+  if (!email) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  const user = {
+    id,
+    info: {
+      id,
+      name: `${firstName} ${lastName}`,
+      email,
+      avatar: imageUrl,
+      color: getUserColor(id),
+    }
+  }
+
+  const { status, body } = await liveblocks.identifyUser(
+    {
+      userId: user.info.email,
+      groupIds: [],
+    },
+    { userInfo: user.info },
+  );
+
+  return new Response(body, { status });
+}
+```
+
+This endpoint:
+- Verifies the Clerk session
+- Extracts user information (name, email, avatar)
+- Assigns a unique color for presence indicators
+- Authenticates the user with Liveblocks
+
+## User Information Structure
+
+Authenticated users have the following structure throughout the app:
+
+```typescript
+interface UserInfo {
+  id: string;           // Clerk user ID
+  name: string;         // Full name from Clerk
+  email: string;        // Primary email address
+  avatar: string;       // Profile image URL
+  color: string;        // Assigned color for presence
+}
+```
+
+<Note>
+  User emails are used as the primary identifier in Liveblocks rooms for permission management.
+</Note>
+
+## UI Components
+
+Clerk provides ready-to-use UI components for authentication state:
+
+```tsx components/CollaborativeRoom.tsx
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
+
+<SignedOut>
+  <SignInButton />
+</SignedOut>
+<SignedIn>
+  <UserButton />
+</SignedIn>
+```
+
+- `<SignedOut>` - Shows content only to unauthenticated users
+- `<SignedIn>` - Shows content only to authenticated users
+- `<SignInButton>` - Redirects to sign-in page
+- `<UserButton>` - Dropdown with user profile and sign-out option
+
+## Security Features
+
+<Tabs>
+  <Tab title="Session Security">
+    - HTTP-only cookies prevent XSS attacks
+    - Automatic session refresh
+    - Secure token rotation
+    - CSRF protection built-in
+  </Tab>
+  
+  <Tab title="Route Protection">
+    - Middleware protects all routes by default
+    - Server-side session verification
+    - API route authentication
+    - Automatic redirects for unauthorized access
+  </Tab>
+  
+  <Tab title="User Verification">
+    - Every server action verifies the current user
+    - Email validation required
+    - Session consistency checks
+    - Prevents unauthorized operations
+  </Tab>
+</Tabs>
+
+<Warning>
+  Always verify user sessions in server actions before performing sensitive operations. See `lib/actions/room.actions.ts:10` for the `getCurrentUserEmail()` helper pattern.
+</Warning>

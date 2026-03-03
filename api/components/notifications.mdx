@@ -1,0 +1,296 @@
+---
+title: 'Notifications'
+description: 'Real-time notification center powered by Liveblocks inbox'
+---
+
+## Overview
+
+The `Notifications` component provides a notification center for collaborative features. It displays unread notifications including mentions, thread replies, and custom document access notifications. Built with Liveblocks inbox system and Shadcn Popover.
+
+## Props
+
+This component takes no props. It uses Liveblocks hooks to automatically fetch notifications for the current user.
+
+## Features
+
+- **Real-time Notifications**: Powered by Liveblocks inbox
+- **Unread Count Badge**: Visual indicator for new notifications
+- **Multiple Notification Types**:
+  - Thread notifications
+  - Text mentions (@mentions)
+  - Custom document access notifications
+- **Deep Links**: Click notifications to navigate to relevant document
+- **Auto-sync**: Notifications update in real-time
+- **Custom UI**: Styled notification components
+
+## Usage Example
+
+### Basic Usage
+
+```tsx
+import Notifications from '@/components/Notifications';
+
+function AppHeader() {
+  return (
+    <header>
+      <nav>
+        {/* Other header content */}
+      </nav>
+      <Notifications />
+    </header>
+  );
+}
+```
+
+### With Liveblocks Provider
+
+```tsx
+import { LiveblocksProvider } from '@liveblocks/react';
+import Notifications from '@/components/Notifications';
+
+function App() {
+  return (
+    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
+      <header>
+        <Notifications />
+      </header>
+    </LiveblocksProvider>
+  );
+}
+```
+
+## Component Structure
+
+```tsx
+<Popover>
+  <PopoverTrigger>
+    {/* Bell icon with unread count badge */}
+  </PopoverTrigger>
+  
+  <PopoverContent>
+    <LiveblocksUIConfig>
+      <InboxNotificationList>
+        {unreadNotifications.map((notification) => (
+          <InboxNotification 
+            key={notification.id}
+            inboxNotification={notification}
+            href={`/documents/${notification.roomId}`}
+          />
+        ))}
+      </InboxNotificationList>
+    </LiveblocksUIConfig>
+  </PopoverContent>
+</Popover>
+```
+
+## Liveblocks Hooks
+
+The component uses two Liveblocks hooks:
+
+### useInboxNotifications
+
+```typescript
+const { inboxNotifications } = useInboxNotifications();
+```
+
+Fetches all inbox notifications for the current user.
+
+### useUnreadInboxNotificationsCount
+
+```typescript
+const { count } = useUnreadInboxNotificationsCount();
+```
+
+Gets the count of unread notifications for the badge indicator.
+
+## Notification Types
+
+The component handles three notification kinds:
+
+### 1. Thread Notifications
+
+```typescript
+thread: (props) => (
+  <InboxNotification.Thread {...props} 
+    showActions={false}
+    showRoomName={false}
+  />
+)
+```
+
+Triggered when someone replies to a comment thread.
+
+### 2. Text Mentions
+
+```typescript
+textMention: (props) => (
+  <InboxNotification.TextMention {...props} 
+    showRoomName={false}
+  />
+)
+```
+
+Triggered when a user is @mentioned in a comment.
+
+### 3. Document Access (Custom)
+
+```typescript
+$documentAccess: (props) => (
+  <InboxNotification.Custom {...props} 
+    title={props.inboxNotification.activities[0].data.title}
+    aside={
+      <InboxNotification.Icon>
+        <Image src={avatar} width={36} height={36} />
+      </InboxNotification.Icon>
+    }
+  >
+    {props.children}
+  </InboxNotification.Custom>
+)
+```
+
+Custom notification for document sharing events.
+
+## UI Customization
+
+### Notification Badge
+
+```tsx
+{count > 0 && (
+  <div className="absolute right-2 top-2 z-20 size-2 rounded-full bg-blue-500" />
+)}
+```
+
+Small blue dot appears when there are unread notifications.
+
+### Empty State
+
+```tsx
+{unreadNotifications.length <= 0 && (
+  <p className="py-2 text-center text-dark-500">
+    No new notifications
+  </p>
+)}
+```
+
+### Custom Text Overrides
+
+```typescript
+<LiveblocksUIConfig 
+  overrides={{
+    INBOX_NOTIFICATION_TEXT_MENTION: (user: ReactNode) => (
+      <>{user} mentioned you.</>
+    )
+  }}
+>
+```
+
+Customizes the text for mention notifications.
+
+## Notification Filtering
+
+Only unread notifications are displayed:
+
+```typescript
+const unreadNotifications = inboxNotifications.filter(
+  (notification) => !notification.readAt
+);
+```
+
+## Navigation
+
+Each notification includes a deep link:
+
+```typescript
+href={`/documents/${notification.roomId}`}
+```
+
+Clicking a notification navigates to the relevant document.
+
+## Styling
+
+### Popover Trigger
+
+```tsx
+className="relative flex size-10 items-center justify-center rounded-lg"
+```
+
+### Popover Content
+
+```tsx
+align="end" className="shad-popover"
+```
+
+### Notification Item
+
+```tsx
+className="bg-dark-200 text-white"
+```
+
+## Notification Properties
+
+| Property | Description |
+|----------|-------------|
+| `showActions` | Hide action buttons (set to false) |
+| `showRoomName` | Hide room name in notification |
+| `href` | Navigation URL on click |
+| `className` | Custom styling classes |
+
+## TypeScript Types
+
+```typescript
+import { 
+  InboxNotification, 
+  InboxNotificationList, 
+  LiveblocksUIConfig 
+} from '@liveblocks/react-ui';
+
+import { 
+  useInboxNotifications, 
+  useUnreadInboxNotificationsCount 
+} from '@liveblocks/react/suspense';
+```
+
+## Dependencies
+
+- **@liveblocks/react-ui**: UI components for notifications
+- **@liveblocks/react/suspense**: Hooks for inbox data
+- **Shadcn UI**: Popover component
+- **Next.js Image**: Optimized avatar images
+
+## Common Use Cases
+
+### In App Header
+
+```tsx
+<header className="flex items-center justify-between p-4">
+  <Logo />
+  <div className="flex gap-2">
+    <Notifications />
+    <UserMenu />
+  </div>
+</header>
+```
+
+### With Other Collaboration Features
+
+```tsx
+<div className="flex gap-2">
+  <ActiveCollaborators />
+  <Notifications />
+  <ShareModal {...props} />
+</div>
+```
+
+## Best Practices
+
+1. **Wrap in LiveblocksProvider**: Ensure the component is within Liveblocks context
+2. **Position Appropriately**: Typically in app header or navigation
+3. **Accessibility**: Bell icon includes proper alt text
+4. **Mobile Responsive**: Popover aligns appropriately on all screens
+
+## Related Components
+
+- [CollaborativeRoom](/api/components/collaborative-room) - Uses notifications for collaboration
+- Comments - Generates thread and mention notifications
+- ActiveCollaborators - Often displayed alongside notifications

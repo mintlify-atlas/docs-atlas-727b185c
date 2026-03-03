@@ -1,0 +1,379 @@
+---
+title: 'Permissions & Access Control'
+description: 'User roles, permission levels, and document sharing'
+---
+
+## Overview
+
+The Collaborative Editor implements a role-based access control system with three user types: **creator**, **editor**, and **viewer**. Permissions are managed at the document (room) level through Liveblocks access controls.
+
+## User Types
+
+Each user in a document has one of three roles:
+
+<Tabs>
+  <Tab title="Creator">
+    The user who created the document.
+    
+    **Permissions:**
+    - Full read and write access
+    - Can edit document content
+    - Can update document title
+    - Can share with other users
+    - Can remove collaborators
+    - Can delete the document
+    
+    **Access Level:** `['room:write']`
+  </Tab>
+  
+  <Tab title="Editor">
+    Users granted editing rights by the creator.
+    
+    **Permissions:**
+    - Full read and write access
+    - Can edit document content
+    - Can update document title
+    - Can share with other users
+    - Can remove collaborators (except creator)
+    - Cannot delete the document
+    
+    **Access Level:** `['room:write']`
+  </Tab>
+  
+  <Tab title="Viewer">
+    Users with read-only access.
+    
+    **Permissions:**
+    - Can view document content
+    - Can see active collaborators
+    - Can add comments
+    - Cannot edit content
+    - Cannot update title
+    - Cannot share or manage access
+    
+    **Access Level:** `['room:read', 'room:presence:write']`
+  </Tab>
+</Tabs>
+
+## Permission Levels
+
+Liveblocks uses string-based permission arrays. The app converts user types to permissions:
+
+```typescript lib/utils.ts
+export const getAccessType = (userType: UserType) => {
+  switch (userType) {
+    case 'creator':
+      return ['room:write'];
+    case 'editor':
+      return ['room:write'];
+    case 'viewer':
+      return ['room:read', 'room:presence:write'];
+    default:
+      return ['room:read', 'room:presence:write'];
+  }
+};
+```
+
+### Permission Breakdown
+
+- `room:write` - Full read/write access to room content and metadata
+- `room:read` - Read-only access to room content
+- `room:presence:write` - Can broadcast presence (cursor position, active status)
+
+<Note>
+  Both `creator` and `editor` receive the same Liveblocks permissions (`room:write`). The distinction is primarily for UI/UX and business logic (e.g., only creators shown in metadata).
+</Note>
+
+## Setting Initial Permissions
+
+When creating a document, the creator automatically gets write access:
+
+```typescript lib/actions/room.actions.ts
+export const createDocument = async ({ userId, email }: CreateDocumentParams) => {
+  const roomId = nanoid();
+
+  const metadata = {
+    creatorId: userId,
+    email,
+    title: 'Untitled'
+  }
+
+  const usersAccesses: RoomAccesses = {
+    [email]: ['room:write']  // Creator gets write access
+  }
+
+  const room = await liveblocks.createRoom(roomId, {
+    metadata,
+    usersAccesses,
+    defaultAccesses: []      // No default access for others
+  });
+
+  return parseStringify(room);
+}
+```
+
+Key points:
+- Creator identified by email in `usersAccesses`
+- `defaultAccesses: []` means no public access
+- Each user permission must be explicitly granted
+
+## Sharing Documents
+
+Grant or update access for other users:
+
+```typescript lib/actions/room.actions.ts
+export const updateDocumentAccess = async ({ 
+  roomId, 
+  email, 
+  userType, 
+  updatedBy 
+}: ShareDocumentParams) => {
+  try {
+    const currentEmail = await getCurrentUserEmail();
+
+    if (!currentEmail) {
+      throw new Error('Unauthorized to update document access');
+    }
+
+    const room = await liveblocks.getRoom(roomId);
+    const access = room.usersAccesses[currentEmail] ?? [];
+
+    if (!access.includes('room:write')) {
+      throw new Error('Insufficient permissions to update document access');
+    }
+
+    const usersAccesses: RoomAccesses = {
+      [email]: getAccessType(userType) as AccessType,
+    }
+
+    const updatedRoom = await liveblocks.updateRoom(roomId, { 
+      usersAccesses
+    })
+
+    if(updatedRoom) {
+      const notificationId = nanoid();
+
+      await liveblocks.triggerInboxNotification({
+        userId: email,
+        kind: '$documentAccess',
+        subjectId: notificationId,
+        activityData: {
+          userType,
+          title: `You have been granted ${userType} access to the document by ${updatedBy.name}`,
+          updatedBy: updatedBy.name,
+          avatar: updatedBy.avatar,
+          email: updatedBy.email
+        },
+        roomId
+      })
+    }
+
+    revalidatePath(`/documents/${roomId}`);
+    return parseStringify(updatedRoom);
+  } catch (error) {
+    console.log(`Error happened while updating a room access: ${error}`);
+  }
+}
+```
+
+### How Sharing Works
+
+1. **Verify Sharer** - Only users with `room:write` can share
+2. **Set Permissions** - Convert user type to Liveblocks access array
+3. **Update Room** - Add/update user in `usersAccesses`
+4. **Send Notification** - Notify the new user via Liveblocks inbox
+5. **Revalidate** - Refresh the document page to show updated collaborators
+
+<Warning>
+  The sharing user must have `room:write` permission. Viewers cannot share documents with others.
+</Warning>
+
+## Removing Collaborators
+
+Revoke access from a user:
+
+```typescript lib/actions/room.actions.ts
+export const removeCollaborator = async ({ 
+  roomId, 
+  email 
+}: {roomId: string, email: string}) => {
+  try {
+    const currentEmail = await getCurrentUserEmail();
+
+    if (!currentEmail) {
+      throw new Error('Unauthorized to remove collaborator');
+    }
+
+    const room = await liveblocks.getRoom(roomId)
+    const access = room.usersAccesses[currentEmail] ?? [];
+
+    if (!access.includes('room:write')) {
+      throw new Error('Insufficient permissions to remove collaborator');
+    }
+
+    if(room.metadata.email === email) {
+      throw new Error('You cannot remove yourself from the document');
+    }
+
+    const updatedRoom = await liveblocks.updateRoom(roomId, {
+      usersAccesses: {
+        [email]: null  // Setting to null removes access
+      }
+    })
+
+    revalidatePath(`/documents/${roomId}`);
+    return parseStringify(updatedRoom);
+  } catch (error) {
+    console.log(`Error happened while removing a collaborator: ${error}`);
+  }
+}
+```
+
+### Protection Rules
+
+- Requires `room:write` permission
+- Cannot remove the document creator
+- Cannot remove yourself
+- User loses all access immediately
+- Disconnected from room if currently active
+
+## Permission Validation
+
+All server actions validate permissions before operations:
+
+### Pattern for Write Operations
+
+```typescript
+const currentEmail = await getCurrentUserEmail();
+
+if (!currentEmail) {
+  throw new Error('Unauthorized');
+}
+
+const room = await liveblocks.getRoom(roomId);
+const access = room.usersAccesses[currentEmail] ?? [];
+
+if (!access.includes('room:write')) {
+  throw new Error('Insufficient permissions');
+}
+
+// Perform operation...
+```
+
+### Pattern for Read Operations
+
+```typescript
+const currentEmail = await getCurrentUserEmail();
+
+if (!currentEmail || currentEmail !== userId) {
+  throw new Error('Unauthorized');
+}
+
+const room = await liveblocks.getRoom(roomId);
+const hasAccess = Object.keys(room.usersAccesses).includes(userId);
+
+if(!hasAccess) {
+  throw new Error('You do not have access to this document');
+}
+
+// Return data...
+```
+
+## UI Permission Gating
+
+The UI adapts based on current user type:
+
+```tsx components/CollaborativeRoom.tsx
+{currentUserType === 'editor' && !editing && (
+  <Image 
+    src="/assets/icons/edit.svg"
+    alt="edit"
+    width={24}
+    height={24}
+    onClick={() => setEditing(true)}
+    className="pointer"
+  />
+)}
+
+{currentUserType !== 'editor' && !editing && (
+  <p className="view-only-tag">View only</p>
+)}
+```
+
+### Editor Configuration
+
+```tsx components/editor/Editor.tsx
+const initialConfig = liveblocksConfig({
+  namespace: 'Editor',
+  nodes: [HeadingNode],
+  theme: Theme,
+  editable: currentUserType === 'editor',  // Controls editor editability
+});
+```
+
+### Conditional Features
+
+```tsx
+{currentUserType === 'editor' && <FloatingToolbarPlugin />}
+{currentUserType === 'editor' && <DeleteModal roomId={roomId} />}
+```
+
+<Note>
+  Client-side permission checks are for UX only. Always validate permissions server-side in server actions to prevent unauthorized access.
+</Note>
+
+## Notification System
+
+When users are granted access, they receive an inbox notification:
+
+```typescript
+await liveblocks.triggerInboxNotification({
+  userId: email,                    // Recipient
+  kind: '$documentAccess',          // Custom notification type
+  subjectId: notificationId,        // Unique notification ID
+  activityData: {
+    userType,                       // Role granted (editor/viewer)
+    title: `You have been granted ${userType} access...`,
+    updatedBy: updatedBy.name,      // Who shared it
+    avatar: updatedBy.avatar,
+    email: updatedBy.email
+  },
+  roomId                            // Link to document
+})
+```
+
+The notification:
+- Appears in the user's inbox
+- Links directly to the shared document
+- Shows who shared it with their avatar
+- Indicates the permission level granted
+
+See [Comments & Notifications](/features/comments) for notification UI details.
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Security">
+    - Always validate permissions server-side
+    - Never trust client-side role checks
+    - Verify current user email matches session
+    - Check `room:write` before mutations
+    - Prevent creator self-removal
+  </Tab>
+  
+  <Tab title="User Experience">
+    - Show "View only" tag for viewers
+    - Hide edit controls from viewers
+    - Display permission level in share modal
+    - Notify users when access is granted
+    - Indicate loading states during updates
+  </Tab>
+  
+  <Tab title="Error Handling">
+    - Return clear error messages
+    - Log errors server-side
+    - Don't expose room structure in errors
+    - Handle missing permissions gracefully
+    - Revalidate after permission changes
+  </Tab>
+</Tabs>

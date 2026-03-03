@@ -1,0 +1,163 @@
+---
+title: 'removeCollaborator'
+description: "Remove a collaborator's access from a document"
+---
+
+## Function Signature
+
+```typescript
+export const removeCollaborator = async ({ roomId, email }: { roomId: string, email: string }) => Promise<Room | undefined>
+```
+
+Removes a collaborator's access to a document. The document owner cannot remove themselves, and write permissions are required to remove others.
+
+## Parameters
+
+<ParamField path="roomId" type="string" required>
+  The unique identifier of the document room.
+</ParamField>
+
+<ParamField path="email" type="string" required>
+  The email address of the collaborator to remove.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="room" type="Room | undefined">
+  Returns the updated room object with the collaborator removed from access, or undefined if an error occurs.
+  
+  <Expandable title="Room Properties">
+    <ResponseField name="id" type="string">
+      Unique room identifier
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="RoomMetadata">
+      Room metadata (unchanged by this operation)
+    </ResponseField>
+    
+    <ResponseField name="usersAccesses" type="RoomAccesses">
+      Updated access control mapping with the collaborator removed.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { removeCollaborator } from '@/lib/actions/room.actions';
+
+const handleRemoveCollaborator = async (roomId: string, collaboratorEmail: string) => {
+  const updatedRoom = await removeCollaborator({
+    roomId,
+    email: collaboratorEmail
+  });
+  
+  if (updatedRoom) {
+    console.log('Collaborator removed:', collaboratorEmail);
+  }
+};
+
+// Example usage
+await handleRemoveCollaborator('room_abc123', 'former-collaborator@example.com');
+```
+
+## Error Handling
+
+The function enforces several validation and permission checks:
+
+<Warning>
+  **Authentication Required**: User must be authenticated to remove collaborators.
+</Warning>
+
+```typescript
+// Error: "Unauthorized to remove collaborator"
+if (!currentEmail) {
+  throw new Error('Unauthorized to remove collaborator');
+}
+```
+
+<Warning>
+  **Write Permission Required**: User must have `room:write` access to remove collaborators.
+</Warning>
+
+```typescript
+// Error: "Insufficient permissions to remove collaborator"
+const access = room.usersAccesses[currentEmail] ?? [];
+if (!access.includes('room:write')) {
+  throw new Error('Insufficient permissions to remove collaborator');
+}
+```
+
+<Warning>
+  **Owner Protection**: Document creators cannot remove themselves from their own documents.
+</Warning>
+
+```typescript
+// Error: "You cannot remove yourself from the document"
+if (room.metadata.email === email) {
+  throw new Error('You cannot remove yourself from the document');
+}
+```
+
+## Implementation Details
+
+- **Null Assignment**: Removes access by setting the user's permissions to `null`
+- **Owner Check**: Compares removal target with `room.metadata.email` (creator)
+- **Cache Revalidation**: Revalidates `/documents/{roomId}` path
+- **Permission Verification**: Verifies requesting user has write access
+
+## Access Removal
+
+```typescript
+const updatedRoom = await liveblocks.updateRoom(roomId, {
+  usersAccesses: {
+    [email]: null
+  }
+});
+```
+
+Setting a user's access to `null` completely removes them from the document's access control list.
+
+## Use Cases
+
+<Note>
+  Common scenarios for removing collaborators:
+  - Revoking access for team members who left the project
+  - Removing viewers who no longer need access
+  - Managing access control as document permissions change
+  
+  The document owner (creator) maintains permanent access and cannot be removed.
+</Note>
+
+## Permission Requirements
+
+<Note>
+  Only users with `room:write` permissions can remove collaborators. This typically includes:
+  - Document creator (owner)
+  - Collaborators with editor access
+  
+  Viewers with `room:read` access cannot remove collaborators.
+</Note>
+
+## Related Functions
+
+- [`updateDocumentAccess`](/api/room/share-document) - Grant or update collaborator access
+- [`deleteDocument`](/api/room/delete-document) - Delete the entire document
+- [`getDocument`](/api/room/get-document) - Retrieve document and access information
+
+## Related Types
+
+```typescript
+declare type RoomMetadata = {
+  creatorId: string;
+  email: string;
+  title: string;
+};
+
+declare type RoomAccesses = Record<string, AccessType>;
+declare type AccessType = ["room:write"] | ["room:read", "room:presence:write"];
+```
+
+## Source
+
+Defined in `lib/actions/room.actions.ts:169`

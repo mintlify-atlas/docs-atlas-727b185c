@@ -1,0 +1,94 @@
+---
+title: "getClerkUsers"
+description: "Fetch user details from Clerk by email addresses"
+---
+
+## Overview
+
+The `getClerkUsers` function retrieves user information from Clerk based on an array of user IDs (email addresses). It requires authentication and returns formatted user objects with id, name, email, and avatar.
+
+## Function Signature
+
+```typescript
+export const getClerkUsers = async ({ userIds }: { userIds: string[] })
+```
+
+## Parameters
+
+<ParamField path="userIds" type="string[]" required>
+  Array of email addresses to fetch user details for. The returned users will be sorted in the same order as the input array.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="users" type="User[] | undefined">
+  Array of user objects sorted in the same order as the input `userIds`. Returns `undefined` if an error occurs.
+  
+  <Expandable title="User Object">
+    <ResponseField name="id" type="string">
+      Clerk user ID
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Full name of the user (firstName + lastName)
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      User's email address
+    </ResponseField>
+    
+    <ResponseField name="avatar" type="string">
+      URL to the user's profile image
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Code Example
+
+```typescript
+import { getClerkUsers } from '@/lib/actions/user.actions';
+
+// Fetch multiple users by their email addresses
+const userEmails = [
+  'john@example.com',
+  'jane@example.com',
+  'bob@example.com'
+];
+
+const users = await getClerkUsers({ userIds: userEmails });
+
+if (users) {
+  users.forEach(user => {
+    console.log(`${user.name} - ${user.email}`);
+  });
+}
+```
+
+## Error Handling
+
+The function handles errors gracefully and logs them to the console. It returns `undefined` when:
+
+- The current user is not authenticated (no email found)
+- The Clerk API request fails
+- Any other error occurs during execution
+
+<Warning>
+  This is a server action and must be called from server components or other server actions. The current user must be authenticated via Clerk.
+</Warning>
+
+## Authentication
+
+<Note>
+  The function automatically checks if the current user is authenticated by retrieving their email. If no authenticated user is found, it throws an "Unauthorized to list users" error.
+</Note>
+
+## Implementation Details
+
+- Uses `clerkClient.users.getUserList()` to fetch user data
+- Transforms Clerk user objects into a simplified format
+- Preserves the order of input `userIds` in the returned array
+- Uses `parseStringify` utility for serialization
+
+## Related
+
+- [getDocumentUsers](/api/user/get-document-users) - Fetch users with access to a specific document

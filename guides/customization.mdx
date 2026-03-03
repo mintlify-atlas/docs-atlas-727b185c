@@ -1,0 +1,505 @@
+---
+title: Customization Guide
+description: Customize the appearance and behavior of your collaborative editor
+---
+
+This guide shows you how to customize the visual appearance and editor functionality of your collaborative editor application.
+
+## Theming with Tailwind CSS
+
+The application uses Tailwind CSS with a custom dark theme configuration.
+
+### Color System
+
+The color palette is defined in `tailwind.config.ts:24-42`:
+
+```typescript
+colors: {
+  blue: {
+    100: '#B4C6EE',
+    400: '#417BFF',
+    500: '#3371FF',
+  },
+  red: {
+    400: '#DD4F56',
+    500: '#DC4349',
+  },
+  dark: {
+    100: '#09111F',
+    200: '#0B1527',
+    300: '#0F1C34',
+    350: '#12213B',
+    400: '#27344D',
+    500: '#2E3D5B',
+  },
+}
+```
+
+#### Primary Blue
+
+Used for accents, buttons, and interactive elements:
+- `blue-100`: Light blue text and subtle accents
+- `blue-400`: Hover states
+- `blue-500`: Primary brand color (also defined in `app/layout.tsx:26`)
+
+#### Dark Background
+
+Creates the dark theme hierarchy:
+- `dark-100`: Main background (`#09111F`)
+- `dark-200`: Card/panel backgrounds
+- `dark-300`: Borders and dividers  
+- `dark-350`: Toolbar backgrounds
+- `dark-400`: Input fields
+- `dark-500`: Scrollbar thumbs
+
+<Note>
+  The root background is set in `app/globals.css:13` to `#09111f` (dark-100) ensuring consistency.
+</Note>
+
+### Changing the Color Scheme
+
+To customize the color palette:
+
+<Steps>
+  <Step title="Update Tailwind Config">
+    Edit `tailwind.config.ts:24-42` with your desired colors:
+    
+    ```typescript
+    colors: {
+      // Change primary brand color
+      blue: {
+        100: '#YOUR_LIGHT_COLOR',
+        400: '#YOUR_MEDIUM_COLOR', 
+        500: '#YOUR_PRIMARY_COLOR',
+      },
+      // Customize dark theme shades
+      dark: {
+        100: '#YOUR_BG_COLOR',
+        200: '#YOUR_PANEL_COLOR',
+        // ... etc
+      },
+    }
+    ```
+  </Step>
+
+  <Step title="Update Clerk Theme">
+    Match Clerk's UI to your brand in `app/layout.tsx:22-29`:
+    
+    ```typescript
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+        variables: { 
+          colorPrimary: "#YOUR_PRIMARY_COLOR",
+          fontSize: '16px'
+        },
+      }}
+    >
+    ```
+  </Step>
+
+  <Step title="Update CSS Variables">
+    Edit Liveblocks theme in `app/globals.css:213-217`:
+    
+    ```css
+    .lb-root {
+      --lb-accent-subtle: #YOUR_PANEL_COLOR;
+      --lb-radius: 0px;
+      --lb-dynamic-background: #YOUR_ACCENT_COLOR;
+    }
+    ```
+  </Step>
+</Steps>
+
+## Custom Utility Classes
+
+The application defines custom utility classes in `app/globals.css:38-171`:
+
+### Typography
+
+```css
+.text-28-semibold { @apply text-[28px] font-semibold; }
+.text-10-regular { @apply text-[10px] font-normal; }
+```
+
+Use these for consistent heading and label styling.
+
+### Gradients
+
+```css
+.gradient-blue { @apply bg-gradient-to-t from-blue-500 to-blue-400; }
+.gradient-red { @apply bg-gradient-to-t from-red-500 to-red-400; }
+```
+
+Apply to buttons or badges for gradient effects.
+
+### Custom Scrollbars
+
+Styled scrollbars are defined in `app/globals.css:18-36`:
+
+```css
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+  border-radius: 50px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #09090a;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #2e3d5b;
+  border-radius: 50px;
+}
+```
+
+Add the `custom-scrollbar` class to any scrollable element.
+
+## Editor Customization
+
+### Editor Appearance
+
+The Lexical editor styling is in `styles/dark-theme.css:59-88`:
+
+```css
+.editor-inner {
+  background: #0b1527; /* Dark background */
+}
+
+.editor-input {
+  min-height: 400px;
+  font-size: 15px;
+  padding: 40px;
+  color: #b4c6ee; /* Light text */
+}
+
+.editor-placeholder {
+  color: #b4c6ee;
+  font-size: 15px;
+}
+```
+
+<Steps>
+  <Step title="Change Editor Background">
+    Edit `styles/dark-theme.css:60` to use a different background:
+    
+    ```css
+    .editor-inner {
+      background: #YOUR_COLOR;
+    }
+    ```
+  </Step>
+
+  <Step title="Adjust Text Color">
+    Modify the text color in `styles/dark-theme.css:74`:
+    
+    ```css
+    .editor-input {
+      color: #YOUR_TEXT_COLOR;
+    }
+    ```
+  </Step>
+
+  <Step title="Customize Padding/Height">
+    Change editor dimensions in `styles/dark-theme.css:65-72`:
+    
+    ```css
+    .editor-input {
+      min-height: 600px; /* Taller editor */
+      padding: 60px; /* More padding */
+    }
+    ```
+  </Step>
+</Steps>
+
+### Toolbar Styling
+
+The floating toolbar appearance is defined in `app/globals.css:77-83`:
+
+```css
+.floating-toolbar {
+  @apply flex w-full min-w-max items-center justify-center 
+         gap-2 rounded-lg bg-dark-350 p-1.5 shadow-xl;
+}
+
+.floating-toolbar-btn {
+  @apply relative inline-flex size-8 items-center justify-center 
+         whitespace-nowrap rounded-md text-sm font-medium 
+         transition-colors focus-visible:outline-none;
+}
+```
+
+Customize toolbar colors by changing `bg-dark-350` to your desired background.
+
+### Text Formatting Styles
+
+Editor text styles are in `styles/dark-theme.css:90-116`:
+
+```css
+.editor-text-bold { font-weight: bold; }
+.editor-text-italic { font-style: italic; }
+.editor-text-underline { text-decoration: underline; }
+.editor-text-strikethrough { text-decoration: line-through; }
+```
+
+These classes are applied automatically by the Lexical editor.
+
+## UI Component Customization
+
+### Dialogs and Modals
+
+Dialog styling with background image overlay (`app/globals.css:53-59`):
+
+```css
+.shad-dialog {
+  @apply w-full max-w-[400px] rounded-xl border-none 
+         bg-doc bg-cover px-5 py-7 shadow-xl 
+         sm:min-w-[500px] !important;
+}
+```
+
+The `bg-doc` uses the image defined in `tailwind.config.ts:57`:
+
+```typescript
+backgroundImage: {
+  doc: 'url(/assets/images/doc.png)',
+  modal: 'url(/assets/images/modal.png)',
+}
+```
+
+Replace these images in your `/public/assets/images/` directory to customize modal backgrounds.
+
+### Buttons and Inputs
+
+Share input styling (`app/globals.css:129-131`):
+
+```css
+.share-input {
+  @apply h-11 flex-1 border-none bg-dark-400 
+         focus-visible:ring-0 focus-visible:ring-offset-0 !important;
+}
+```
+
+Modify `bg-dark-400` to change input field backgrounds.
+
+### Comments and Threads
+
+Comment component styling (`app/globals.css:141-147`):
+
+```css
+.comment-composer {
+  @apply w-full max-w-[800px] border border-dark-300 
+         bg-dark-200 shadow-sm lg:w-[350px];
+}
+
+.comment-thread {
+  @apply w-full max-w-[800px] border border-dark-300 
+         bg-dark-200 shadow-sm lg:w-[350px] transition-all;
+}
+```
+
+## Liveblocks UI Customization
+
+The Liveblocks components are extensively customized in `app/globals.css:213-315`.
+
+### CSS Variables
+
+```css
+.lb-root {
+  --lb-accent-subtle: #0b1527;
+  --lb-radius: 0px; /* Square corners */
+  --lb-dynamic-background: #1b2840;
+}
+```
+
+Change these to customize:
+- Corner radius (`--lb-radius`)
+- Accent colors (`--lb-accent-subtle`)
+- Background overlays (`--lb-dynamic-background`)
+
+### Component Colors
+
+Comments and composer backgrounds (`app/globals.css:219-225`):
+
+```css
+.lb-comment,
+.lb-thread-comments,
+.lb-composer,
+.lb-comment-reaction {
+  background-color: #0f1c34;
+  color: #fff;
+}
+```
+
+### Button Variants
+
+Primary button styling (`app/globals.css:231-235`):
+
+```css
+.lb-button:where([data-variant='primary']) {
+  background-color: #161e30;
+  color: #b4c6ee;
+  padding: 8px;
+}
+```
+
+<Warning>
+  Liveblocks styles use specific selectors. Test changes thoroughly to ensure they don't break the UI.
+</Warning>
+
+## Font Customization
+
+The application uses Inter font from Google Fonts (`app/layout.tsx:1-13`):
+
+```typescript
+import { Inter as FontSans } from "next/font/google"
+
+const fontSans = FontSans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
+```
+
+### Changing the Font
+
+<Steps>
+  <Step title="Import New Font">
+    Replace Inter with your chosen font in `app/layout.tsx:1`:
+    
+    ```typescript
+    import { Roboto } from "next/font/google"
+    
+    const fontSans = Roboto({
+      weight: ['400', '500', '700'],
+      subsets: ["latin"],
+      variable: "--font-sans",
+    })
+    ```
+  </Step>
+
+  <Step title="Update Tailwind Config">
+    The font variable is configured in `tailwind.config.ts:43-45`:
+    
+    ```typescript
+    fontFamily: {
+      sans: ['var(--font-sans)', ...fontFamily.sans],
+    }
+    ```
+    
+    This automatically applies your font family site-wide.
+  </Step>
+</Steps>
+
+## Animations
+
+Tailwind animations are configured in `tailwind.config.ts:46-63`:
+
+```typescript
+keyframes: {
+  'accordion-down': {
+    from: { height: '0' },
+    to: { height: 'var(--radix-accordion-content-height)' },
+  },
+  'accordion-up': {
+    from: { height: 'var(--radix-accordion-content-height)' },
+    to: { height: '0' },
+  },
+},
+animation: {
+  'accordion-down': 'accordion-down 0.2s ease-out',
+  'accordion-up': 'accordion-up 0.2s ease-out',
+}
+```
+
+Use with `animate-accordion-down` or `animate-accordion-up` classes.
+
+## Advanced Customization
+
+### Dark Mode Toggle
+
+The app uses a fixed dark theme (`tailwind.config.ts:6`):
+
+```typescript
+darkMode: ['class'],
+```
+
+To add light mode support:
+
+1. Define light theme colors in Tailwind config
+2. Add theme toggle in a layout component
+3. Update Clerk and Liveblocks themes conditionally
+4. Create light versions of custom CSS classes
+
+### Custom Clerk Components
+
+Clerk components are styled in `app/globals.css:173-211`:
+
+```css
+.cl-cardBox,
+.cl-signIn-start,
+.cl-signUp-start,
+.cl-footer {
+  background: #060d18;
+  box-shadow: none;
+  padding: 20px;
+}
+
+.cl-socialButtonsBlockButton {
+  height: 40px;
+  background-color: #3371ff;
+  color: #fff;
+}
+```
+
+You can override any Clerk class to match your design.
+
+### Editor Plugins
+
+The application uses the `jsm-editor` package (`package.json:28`) built on Lexical. To extend editor functionality:
+
+1. Import additional Lexical plugins from `@lexical/react`
+2. Add plugin components to your editor configuration
+3. Create custom toolbar buttons for new features
+4. Style new elements in `styles/dark-theme.css`
+
+<Note>
+  The editor uses Lexical v0.16.1. Check the [Lexical documentation](https://lexical.dev/) for available plugins and APIs.
+</Note>
+
+## Responsive Design
+
+Custom breakpoints are defined in `tailwind.config.ts:15-22`:
+
+```typescript
+container: {
+  center: true,
+  padding: '2rem',
+  screens: {
+    '2xl': '1400px',
+    xs: '360px',
+  },
+}
+```
+
+Use these with responsive classes:
+
+```jsx
+<div className="xs:px-4 sm:px-6 lg:px-8 2xl:px-12">
+  {/* Responsive padding */}
+</div>
+```
+
+## Testing Your Changes
+
+After making customization changes:
+
+1. Restart the development server: `npm run dev`
+2. Clear browser cache if styles don't update
+3. Test in different browsers for consistency
+4. Verify mobile responsiveness
+5. Check both authenticated and unauthenticated views
+
+<Warning>
+  Some Tailwind classes use `!important` modifiers. If your custom styles aren't applying, you may need to add `!important` or increase specificity.
+</Warning>

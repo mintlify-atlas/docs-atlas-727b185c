@@ -1,0 +1,420 @@
+---
+title: 'Comments & Notifications'
+description: 'Inline comments, threaded discussions, and real-time notifications'
+---
+
+## Overview
+
+The Collaborative Editor provides a rich commenting system powered by Liveblocks. Users can add inline comments, participate in threaded discussions, and receive real-time notifications for mentions and document access.
+
+## Comment System Architecture
+
+Comments are implemented using Liveblocks' built-in commenting infrastructure:
+
+- **Threads** - Discussion threads attached to specific document positions
+- **Composer** - UI for creating new comment threads
+- **Inline Display** - Comments appear next to referenced text
+- **Real-time Sync** - Updates instantly across all collaborators
+
+## Inline Comments
+
+Users can create comments on selected text using the floating composer:
+
+```tsx components/Comments.tsx
+import { Composer, Thread } from '@liveblocks/react-ui';
+import { useThreads } from '@liveblocks/react/suspense';
+
+const Comments = () => {
+  const { threads } = useThreads();
+
+  return (
+    <div className="comments-container">
+      <Composer className="comment-composer" />
+
+      {threads.map((thread) => (
+        <ThreadWrapper key={thread.id} thread={thread} />
+      ))}
+    </div>
+  )
+}
+```
+
+### How It Works
+
+1. **Select Text** - Highlight text in the document
+2. **Open Composer** - Floating composer appears near selection
+3. **Write Comment** - Enter comment text with optional @mentions
+4. **Create Thread** - Comment attaches to selected text position
+5. **Real-time Sync** - All users see the new comment instantly
+
+<Note>
+  Comments maintain their position as the document is edited. Liveblocks automatically tracks text changes and updates comment anchors.
+</Note>
+
+## Thread Comments
+
+Each thread supports multi-user discussions:
+
+```tsx components/Comments.tsx
+import { useIsThreadActive } from '@liveblocks/react-lexical';
+import { cn } from '@/lib/utils';
+
+const ThreadWrapper = ({ thread }: ThreadWrapperProps) => {
+  const isActive = useIsThreadActive(thread.id);
+
+  return (
+    <Thread 
+      thread={thread}
+      data-state={isActive ? 'active' : null}
+      className={cn('comment-thread border', 
+        isActive && '!border-blue-500 shadow-md',
+        thread.resolved && 'opacity-40'
+      )}
+    />
+  )
+}
+```
+
+### Thread States
+
+<Tabs>
+  <Tab title="Active">
+    A thread is active when:
+    - User's cursor is in the referenced text
+    - Thread is currently being viewed/replied to
+    
+    Visual indicators:
+    - Blue border (`border-blue-500`)
+    - Shadow effect for emphasis
+    - Highlighted reference text in editor
+  </Tab>
+  
+  <Tab title="Resolved">
+    Threads can be marked as resolved:
+    - Reduced opacity (`opacity-40`)
+    - Collapsed by default
+    - Still accessible for reference
+    - Can be reopened if needed
+  </Tab>
+  
+  <Tab title="Inactive">
+    Default state for threads:
+    - Standard border styling
+    - Full opacity
+    - Visible in comment panel
+    - Activates on cursor interaction
+  </Tab>
+</Tabs>
+
+## Editor Integration
+
+Comments integrate seamlessly with the Lexical editor:
+
+```tsx components/editor/Editor.tsx
+import { 
+  FloatingComposer, 
+  FloatingThreads, 
+  LiveblocksPlugin 
+} from '@liveblocks/react-lexical'
+import { useThreads } from '@liveblocks/react/suspense';
+import Comments from '../Comments';
+
+export function Editor({ roomId, currentUserType }) {
+  const { threads } = useThreads();
+
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      <div className="editor-container">
+        {/* Editor content */}
+        
+        <LiveblocksPlugin>
+          <FloatingComposer className="w-[350px]" />
+          <FloatingThreads threads={threads} />
+          <Comments />
+        </LiveblocksPlugin>
+      </div>
+    </LexicalComposer>
+  );
+}
+```
+
+### Component Roles
+
+- **FloatingComposer** - Appears when text is selected, creates new threads
+- **FloatingThreads** - Displays threads at their document positions
+- **Comments** - Shows all threads in a sidebar panel
+- **LiveblocksPlugin** - Synchronizes comment state across clients
+
+## Notifications System
+
+Users receive notifications for:
+- @mentions in comments
+- Replies to their threads
+- Document access grants
+
+```tsx components/Notifications.tsx
+import {
+  InboxNotification,
+  InboxNotificationList,
+  LiveblocksUIConfig
+} from "@liveblocks/react-ui"
+import {
+  useInboxNotifications,
+  useUnreadInboxNotificationsCount
+} from "@liveblocks/react/suspense"
+
+const Notifications = () => {
+  const { inboxNotifications } = useInboxNotifications();
+  const { count } = useUnreadInboxNotificationsCount();
+
+  const unreadNotifications = inboxNotifications.filter(
+    (notification) => !notification.readAt
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger className="relative flex size-10 items-center justify-center rounded-lg">
+        <Image 
+          src="/assets/icons/bell.svg"
+          alt="inbox"
+          width={24}
+          height={24}
+        />
+        {count > 0 && (
+          <div className="absolute right-2 top-2 z-20 size-2 rounded-full bg-blue-500" />
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="shad-popover">
+        <InboxNotificationList>
+          {unreadNotifications.length <= 0 && (
+            <p className="py-2 text-center text-dark-500">No new notifications</p>
+          )}
+
+          {unreadNotifications.length > 0 && unreadNotifications.map((notification) => (
+            <InboxNotification 
+              key={notification.id}
+              inboxNotification={notification}
+              href={`/documents/${notification.roomId}`}
+            />
+          ))}
+        </InboxNotificationList>
+      </PopoverContent>
+    </Popover>
+  )
+}
+```
+
+### Notification Features
+
+- **Badge Counter** - Blue dot shows unread count
+- **Popover UI** - Click bell icon to view notifications
+- **Direct Links** - Click notification to jump to document
+- **Auto-read** - Notifications marked read when clicked
+- **Filtering** - Only shows unread by default
+
+## Notification Types
+
+The app handles three notification kinds:
+
+```tsx components/Notifications.tsx
+<LiveblocksUIConfig 
+  overrides={{
+    INBOX_NOTIFICATION_TEXT_MENTION: (user: ReactNode) => (
+      <>{user} mentioned you.</>
+    )
+  }}
+>
+  <InboxNotificationList>
+    {unreadNotifications.map((notification) => (
+      <InboxNotification 
+        key={notification.id}
+        inboxNotification={notification}
+        kinds={{
+          thread: (props) => (
+            <InboxNotification.Thread {...props} 
+              showActions={false}
+              showRoomName={false}
+            />
+          ),
+          textMention: (props) => (
+            <InboxNotification.TextMention {...props} 
+              showRoomName={false}
+            />
+          ),
+          $documentAccess: (props) => (
+            <InboxNotification.Custom 
+              {...props} 
+              title={props.inboxNotification.activities[0].data.title} 
+              aside={
+                <InboxNotification.Icon className="bg-transparent">
+                  <Image 
+                    src={props.inboxNotification.activities[0].data.avatar as string || ''}
+                    width={36}
+                    height={36}
+                    alt="avatar"
+                    className="rounded-full"
+                  />
+                </InboxNotification.Icon>
+              }
+            >
+              {props.children}
+            </InboxNotification.Custom>
+          )
+        }}
+      />
+    ))}
+  </InboxNotificationList>
+</LiveblocksUIConfig>
+```
+
+<Tabs>
+  <Tab title="Thread Notifications">
+    Triggered when someone:
+    - Replies to your comment
+    - Resolves a thread you created
+    - Reopens a resolved thread
+    
+    Displays:
+    - User avatar and name
+    - Comment preview
+    - Time ago
+    - Link to document
+  </Tab>
+  
+  <Tab title="Mention Notifications">
+    Triggered when:
+    - Someone @mentions you in a comment
+    
+    Displays:
+    - "{user} mentioned you."
+    - Comment context
+    - Link to specific thread
+    - Original comment text
+  </Tab>
+  
+  <Tab title="Access Notifications">
+    Triggered when:
+    - Someone shares a document with you
+    
+    Custom notification showing:
+    - Sharer's avatar
+    - Permission level granted (editor/viewer)
+    - "You have been granted {role} access by {name}"
+    - Link to document
+  </Tab>
+</Tabs>
+
+## Creating Access Notifications
+
+When sharing documents, notifications are sent programmatically:
+
+```typescript lib/actions/room.actions.ts
+import { nanoid } from 'nanoid';
+
+const notificationId = nanoid();
+
+await liveblocks.triggerInboxNotification({
+  userId: email,
+  kind: '$documentAccess',
+  subjectId: notificationId,
+  activityData: {
+    userType,
+    title: `You have been granted ${userType} access to the document by ${updatedBy.name}`,
+    updatedBy: updatedBy.name,
+    avatar: updatedBy.avatar,
+    email: updatedBy.email
+  },
+  roomId
+})
+```
+
+This creates a rich notification with:
+- Custom message template
+- Sharer's profile information
+- Permission level context
+- Direct link to the shared document
+
+## Mention Suggestions
+
+The app enables @mentions with auto-complete:
+
+```tsx app/Provider.tsx
+<LiveblocksProvider 
+  authEndpoint="/api/liveblocks-auth"
+  resolveMentionSuggestions={async ({ text, roomId }) => {
+    const currentEmail = clerkUser?.emailAddresses[0]?.emailAddress;
+
+    if (!currentEmail) {
+      return [];
+    }
+
+    const roomUsers = await getDocumentUsers({
+      roomId,
+      currentUser: currentEmail,
+      text,
+    })
+
+    return roomUsers;
+  }}
+>
+```
+
+When typing `@` in a comment:
+1. Fetches all users with access to the document
+2. Filters by typed text
+3. Shows autocomplete dropdown
+4. Selecting user creates mention
+5. Mentioned user receives notification
+
+<Note>
+  Mentions only suggest users who have access to the current document. You cannot mention users who don't have permission to view the room.
+</Note>
+
+## Comment Permissions
+
+All user types can comment:
+
+- **Editors** - Can create, reply, resolve, and delete comments
+- **Viewers** - Can create and reply to comments (read-only on content, but can comment)
+
+This allows viewers to provide feedback even without edit access.
+
+```typescript
+// Viewers have presence:write permission
+case 'viewer':
+  return ['room:read', 'room:presence:write'];
+```
+
+The `room:presence:write` permission includes commenting abilities.
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Creating Comments">
+    - Be specific with text selection
+    - Use @mentions to notify relevant users
+    - Mark threads resolved when addressed
+    - Keep discussions focused and on-topic
+    - Link to related threads if applicable
+  </Tab>
+  
+  <Tab title="Managing Threads">
+    - Resolve threads when issues are fixed
+    - Reopen if new information emerges
+    - Archive old discussions periodically
+    - Respond promptly to mentions
+    - Use thread replies, not new threads
+  </Tab>
+  
+  <Tab title="Notifications">
+    - Check inbox regularly for mentions
+    - Click notifications to see context
+    - Mark as read after addressing
+    - Adjust notification preferences if needed
+    - Don't overuse @mentions
+  </Tab>
+</Tabs>
+
+<Warning>
+  Comments are permanent and visible to all users with document access. Deleted comments may still appear in notification history.
+</Warning>

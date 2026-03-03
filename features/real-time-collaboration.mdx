@@ -1,0 +1,303 @@
+---
+title: 'Real-Time Collaboration'
+description: 'Live collaborative editing with Liveblocks'
+---
+
+## Overview
+
+The Collaborative Editor uses [Liveblocks](https://liveblocks.io) to enable real-time, multiplayer editing experiences. Multiple users can edit the same document simultaneously with instant synchronization and presence awareness.
+
+## How Liveblocks Works
+
+Liveblocks provides:
+- **Real-time synchronization** - Changes sync instantly across all connected clients
+- **Presence awareness** - See who's currently viewing or editing
+- **Conflict-free editing** - CRDTs ensure consistency without manual conflict resolution
+- **Thread comments** - Collaborative discussions on document content
+
+## Setup and Configuration
+
+### Liveblocks Provider
+
+The app wraps all pages with `LiveblocksProvider` to enable real-time features:
+
+```tsx app/Provider.tsx
+'use client';
+
+import { LiveblocksProvider } from '@liveblocks/react/suspense';
+import { useUser } from '@clerk/nextjs';
+
+const Provider = ({ children }: { children: ReactNode}) => {
+  const { user: clerkUser } = useUser();
+
+  return (
+    <LiveblocksProvider 
+      authEndpoint="/api/liveblocks-auth"
+      resolveUsers={async ({ userIds }) => {
+        const users = await getClerkUsers({ userIds});
+        return users;
+      }}
+      resolveMentionSuggestions={async ({ text, roomId }) => {
+        const currentEmail = clerkUser?.emailAddresses[0]?.emailAddress;
+
+        if (!currentEmail) {
+          return [];
+        }
+
+        const roomUsers = await getDocumentUsers({
+          roomId,
+          currentUser: currentEmail,
+          text,
+        })
+
+        return roomUsers;
+      }}
+    >
+      <ClientSideSuspense fallback={<Loader />}>
+        {children}
+      </ClientSideSuspense>
+    </LiveblocksProvider>
+  )
+}
+```
+
+Key configuration:
+- `authEndpoint` - Authenticates users via Clerk integration
+- `resolveUsers` - Fetches user information for avatars and names
+- `resolveMentionSuggestions` - Enables @mentions in comments
+
+### Room Provider
+
+Each document is a separate Liveblocks "room" with isolated state:
+
+```tsx components/CollaborativeRoom.tsx
+import { RoomProvider } from '@liveblocks/react/suspense'
+
+const CollaborativeRoom = ({ roomId, roomMetadata, users, currentUserType }) => {
+  return (
+    <RoomProvider id={roomId}>
+      <ClientSideSuspense fallback={<Loader />}>
+        {/* Document content */}
+      </ClientSideSuspense>
+    </RoomProvider>
+  )
+}
+```
+
+## Active Collaborators Display
+
+Show who's currently in the document with real-time presence:
+
+```tsx components/ActiveCollaborators.tsx
+import { useOthers } from '@liveblocks/react/suspense'
+import Image from 'next/image';
+
+const ActiveCollaborators = () => {
+  const others = useOthers();
+
+  const collaborators = others.map((other) => other.info);
+
+  return (
+    <ul className="collaborators-list">
+      {collaborators.map(({ id, avatar, name, color }) => (
+        <li key={id}>
+          <Image 
+            src={avatar}
+            alt={name}
+            width={100}
+            height={100}
+            className='inline-block size-8 rounded-full ring-2 ring-dark-100'
+            style={{border: `3px solid ${color}`}}
+          />
+        </li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### How It Works
+
+1. `useOthers()` hook returns all users currently in the room (excluding yourself)
+2. Each user has `info` containing their name, avatar, and assigned color
+3. Avatars display with a colored border for visual distinction
+4. Updates automatically as users join/leave
+
+<Note>
+  The `useOthers()` hook only works inside a `RoomProvider`. It automatically re-renders when presence changes.
+</Note>
+
+## Presence Indicators
+
+Each user is assigned a unique color for presence visualization:
+
+```typescript lib/utils.ts
+export const brightColors = [
+  '#2E8B57', // Darker Neon Green
+  '#FF6EB4', // Darker Neon Pink
+  '#00CDCD', // Darker Cyan
+  '#FF00FF', // Darker Neon Magenta
+  // ... more colors
+];
+
+export function getUserColor(userId: string) {
+  let sum = 0;
+  for (let i = 0; i < userId.length; i++) {
+    sum += userId.charCodeAt(i);
+  }
+
+  const colorIndex = sum % brightColors.length;
+  return brightColors[colorIndex];
+}
+```
+
+Colors are:
+- Deterministically assigned based on user ID
+- Consistent across sessions
+- High-contrast for visibility
+
+## User Type Configuration
+
+```typescript liveblocks.config.ts
+declare global {
+  interface Liveblocks {
+    UserMeta: {
+      id: string;
+      info: {
+        id: string;
+        name: string;
+        email: string;
+        avatar: string;
+        color: string;
+      };
+    };
+  }
+}
+```
+
+This TypeScript declaration ensures type safety for user metadata throughout the app.
+
+## Real-Time Editor Integration
+
+Liveblocks integrates with the Lexical editor for live collaborative editing:
+
+```tsx components/editor/Editor.tsx
+import { 
+  liveblocksConfig, 
+  LiveblocksPlugin, 
+  FloatingComposer, 
+  FloatingThreads 
+} from '@liveblocks/react-lexical'
+
+export function Editor({ roomId, currentUserType }) {
+  const status = useEditorStatus();
+  const { threads } = useThreads();
+
+  const initialConfig = liveblocksConfig({
+    namespace: 'Editor',
+    nodes: [HeadingNode],
+    onError: (error: Error) => {
+      console.error(error);
+      throw error;
+    },
+    theme: Theme,
+    editable: currentUserType === 'editor',
+  });
+
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      {/* Editor UI */}
+      
+      <LiveblocksPlugin>
+        <FloatingComposer className="w-[350px]" />
+        <FloatingThreads threads={threads} />
+        <Comments />
+      </LiveblocksPlugin>
+    </LexicalComposer>
+  );
+}
+```
+
+### Key Components
+
+<Tabs>
+  <Tab title="LiveblocksPlugin">
+    Synchronizes Lexical editor state across all connected clients:
+    - Merges concurrent edits using CRDTs
+    - Handles network reconnection
+    - Preserves undo/redo history
+  </Tab>
+  
+  <Tab title="FloatingComposer">
+    Inline comment composer that appears when text is selected:
+    - Creates new comment threads
+    - Attaches to specific text positions
+    - Updates position as document changes
+  </Tab>
+  
+  <Tab title="FloatingThreads">
+    Displays comment threads at their document positions:
+    - Shows active discussions
+    - Highlights referenced text
+    - Updates in real-time as comments are added
+  </Tab>
+</Tabs>
+
+## Loading States
+
+Handle connection and synchronization states:
+
+```tsx
+import { useEditorStatus } from '@liveblocks/react-lexical'
+
+const status = useEditorStatus();
+
+{status === 'not-loaded' || status === 'loading' ? (
+  <Loader />
+) : (
+  <div className="editor-inner">
+    {/* Editor content */}
+  </div>
+)}
+```
+
+Possible statuses:
+- `not-loaded` - Initial state before connection
+- `loading` - Connecting to Liveblocks and fetching data
+- `synchronizing` - Connected, syncing latest changes
+- `synchronized` - Fully synced and ready
+
+## Permission-Based Editing
+
+The editor respects user permissions set at the room level:
+
+```typescript
+const initialConfig = liveblocksConfig({
+  editable: currentUserType === 'editor',
+});
+```
+
+- `editor` users can edit content and see editing tools
+- `viewer` users have read-only access
+- Permission changes take effect immediately
+
+<Warning>
+  Always validate user permissions on the server before allowing document modifications. Client-side permission checks are for UX only. See [Permissions](/features/permissions) for details.
+</Warning>
+
+## Performance Optimization
+
+Liveblocks uses several strategies for optimal performance:
+
+1. **Efficient Updates** - Only changed content is transmitted
+2. **Client-Side Suspense** - Prevents blocking UI during sync
+3. **Automatic Reconnection** - Handles network interruptions gracefully
+4. **Presence Throttling** - Batches presence updates to reduce bandwidth
+
+```tsx
+<ClientSideSuspense fallback={<Loader />}>
+  {children}
+</ClientSideSuspense>
+```
+
+The suspense boundary ensures the app remains responsive while waiting for real-time data.

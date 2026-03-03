@@ -1,0 +1,132 @@
+---
+title: 'updateDocument'
+description: "Update a document's title and metadata"
+---
+
+## Function Signature
+
+```typescript
+export const updateDocument = async (roomId: string, title: string) => Promise<Room | undefined>
+```
+
+Updates the title of an existing collaborative document. Requires write permissions on the document.
+
+## Parameters
+
+<ParamField path="roomId" type="string" required>
+  The unique identifier of the document room to update.
+</ParamField>
+
+<ParamField path="title" type="string" required>
+  The new title for the document.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="room" type="Room | undefined">
+  Returns the updated room object with the new metadata, or undefined if an error occurs.
+  
+  <Expandable title="Room Properties">
+    <ResponseField name="id" type="string">
+      Unique room identifier
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="RoomMetadata">
+      Updated room metadata with the new title:
+      - `creatorId`: User ID of the document creator
+      - `email`: Creator's email address
+      - `title`: Updated document title
+    </ResponseField>
+    
+    <ResponseField name="usersAccesses" type="RoomAccesses">
+      Access control mapping (unchanged by this operation)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { updateDocument } from '@/lib/actions/room.actions';
+
+const renameDocument = async (roomId: string, newTitle: string) => {
+  const updatedDoc = await updateDocument(roomId, newTitle);
+  
+  if (updatedDoc) {
+    console.log('Document renamed to:', updatedDoc.metadata.title);
+  }
+};
+
+// Example usage
+await renameDocument('room_abc123', 'Q4 Planning Document');
+```
+
+## Error Handling
+
+The function enforces strict permission requirements:
+
+<Warning>
+  **Authentication Required**: User must be authenticated to update documents.
+</Warning>
+
+```typescript
+// Error: "Unauthorized to update document"
+if (!currentEmail) {
+  throw new Error('Unauthorized to update document');
+}
+```
+
+<Warning>
+  **Write Permission Required**: User must have `room:write` access to update the document.
+</Warning>
+
+```typescript
+// Error: "Insufficient permissions to update document"
+const access = room.usersAccesses[currentEmail] ?? [];
+if (!access.includes('room:write')) {
+  throw new Error('Insufficient permissions to update document');
+}
+```
+
+## Permission Levels
+
+<Note>
+  Only users with `room:write` permissions can update document metadata. Viewers with `room:read` access cannot modify the title.
+</Note>
+
+## Implementation Details
+
+- **Permission Check**: Verifies user has write access before allowing updates
+- **Metadata Update**: Only updates the title field, preserving other metadata
+- **Cache Revalidation**: Automatically revalidates `/documents/{roomId}` path
+- **Partial Updates**: Uses Liveblocks' partial update mechanism for metadata
+
+## Cache Behavior
+
+```typescript
+revalidatePath(`/documents/${roomId}`);
+```
+
+After a successful update, the function revalidates the document's specific page to ensure the UI reflects the new title immediately.
+
+## Related Functions
+
+- [`createDocument`](/api/room/create-document) - Create a new document
+- [`getDocument`](/api/room/get-document) - Retrieve a document
+- [`deleteDocument`](/api/room/delete-document) - Delete a document
+
+## Related Types
+
+```typescript
+declare type RoomMetadata = {
+  creatorId: string;
+  email: string;
+  title: string;
+};
+
+declare type AccessType = ["room:write"] | ["room:read", "room:presence:write"];
+```
+
+## Source
+
+Defined in `lib/actions/room.actions.ts:76`

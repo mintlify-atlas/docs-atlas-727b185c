@@ -1,0 +1,217 @@
+---
+title: 'Liveblocks Real-Time Collaboration'
+description: 'Learn how Liveblocks enables real-time collaboration features in the editor'
+---
+
+## Overview
+
+Liveblocks powers the real-time collaboration features including live cursors, presence indicators, and collaborative editing. It integrates seamlessly with Lexical editor and Clerk authentication.
+
+## Installation
+
+The project uses multiple Liveblocks packages:
+
+```json package.json
+"@liveblocks/client": "^2.3.0",
+"@liveblocks/node": "^2.3.0",
+"@liveblocks/react": "^2.3.0",
+"@liveblocks/react-lexical": "^2.3.0",
+"@liveblocks/react-ui": "^2.3.0"
+```
+
+Install all packages:
+
+```bash
+npm install @liveblocks/client @liveblocks/node @liveblocks/react @liveblocks/react-lexical @liveblocks/react-ui
+```
+
+## Environment Variables
+
+Add your Liveblocks secret key to `.env.local`:
+
+```bash
+LIVEBLOCKS_SECRET_KEY=your_secret_key
+```
+
+Get your secret key from the [Liveblocks Dashboard](https://liveblocks.io/dashboard).
+
+## Configuration
+
+### Server Setup
+
+Initialize the Liveblocks client in `lib/liveblocks.ts`:
+
+```ts lib/liveblocks.ts
+import { Liveblocks } from "@liveblocks/node";
+
+export const liveblocks = new Liveblocks({
+  secret: process.env.LIVEBLOCKS_SECRET_KEY as string,
+});
+```
+
+### Type Definitions
+
+Define your collaboration data types in `liveblocks.config.ts`:
+
+```ts liveblocks.config.ts
+declare global {
+  interface Liveblocks {
+    // Custom user metadata
+    UserMeta: {
+      id: string;
+      info: {
+        id: string;
+        name: string;
+        email: string;
+        avatar: string;
+        color: string;
+      };
+    };
+
+    // Room presence data
+    Presence: {};
+
+    // Conflict-free storage
+    Storage: {};
+
+    // Custom events
+    RoomEvent: {};
+
+    // Thread metadata for comments
+    ThreadMetadata: {};
+
+    // Room information
+    RoomInfo: {};
+  }
+}
+```
+
+## Authentication Endpoint
+
+The authentication endpoint bridges Clerk and Liveblocks:
+
+<Steps>
+  <Step title="Get Clerk User">
+    Retrieve the authenticated user from Clerk:
+
+    ```tsx app/api/liveblocks-auth/route.ts
+    import { currentUser } from "@clerk/nextjs/server";
+    import { liveblocks } from "@/lib/liveblocks";
+    import { getUserColor } from "@/lib/utils";
+
+    export async function POST(request: Request) {
+      const clerkUser = await currentUser();
+
+      if (!clerkUser) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Extract User Data">
+    Map Clerk user data to Liveblocks format:
+
+    ```tsx app/api/liveblocks-auth/route.ts
+    const { id, firstName, lastName, emailAddresses, imageUrl } = clerkUser;
+    const email = emailAddresses[0]?.emailAddress;
+
+    const user = {
+      id,
+      info: {
+        id,
+        name: `${firstName} ${lastName}`,
+        email,
+        avatar: imageUrl,
+        color: getUserColor(id),
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Identify User">
+    Authenticate the user with Liveblocks:
+
+    ```tsx app/api/liveblocks-auth/route.ts
+    const { status, body } = await liveblocks.identifyUser(
+      {
+        userId: user.info.email,
+        groupIds: [],
+      },
+      { userInfo: user.info },
+    );
+
+    return new Response(body, { status });
+    ```
+  </Step>
+</Steps>
+
+## Integration with Lexical Editor
+
+Liveblocks is integrated into the Lexical editor via plugins:
+
+```tsx components/editor/Editor.tsx
+import { 
+  FloatingComposer, 
+  FloatingThreads, 
+  liveblocksConfig, 
+  LiveblocksPlugin 
+} from '@liveblocks/react-lexical'
+import { useThreads } from '@liveblocks/react/suspense';
+
+export function Editor({ roomId, currentUserType }: { roomId: string, currentUserType: UserType }) {
+  const { threads } = useThreads();
+
+  const initialConfig = liveblocksConfig({
+    namespace: 'Editor',
+    nodes: [HeadingNode],
+    onError: (error: Error) => {
+      console.error(error);
+      throw error;
+    },
+    theme: Theme,
+    editable: currentUserType === 'editor',
+  });
+
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      <LiveblocksPlugin>
+        <FloatingComposer className="w-[350px]" />
+        <FloatingThreads threads={threads} />
+        <Comments />
+      </LiveblocksPlugin>
+    </LexicalComposer>
+  );
+}
+```
+
+## Key Features
+
+<Note>
+  The `LiveblocksPlugin` must be placed inside `LexicalComposer` to enable real-time collaboration.
+</Note>
+
+### Real-Time Components
+
+- **FloatingComposer**: Comment composer that appears when text is selected
+- **FloatingThreads**: Displays comment threads attached to document ranges
+- **Comments**: Custom component for managing comment interactions
+
+### Room Configuration
+
+- **Room ID**: Unique identifier for each collaborative document session
+- **User Type**: Controls editor permissions (`editor` vs. `viewer`)
+- **Namespace**: Isolates editor state (`'Editor'`)
+
+## User Presence
+
+Liveblocks automatically tracks:
+- Active users in the room
+- User cursor positions
+- User selection ranges
+- User metadata (name, avatar, color)
+
+## Related Integrations
+
+- [Clerk Authentication](/integrations/clerk) - Provides user data for Liveblocks
+- [Lexical Editor](/integrations/lexical-editor) - Editor framework that Liveblocks enhances

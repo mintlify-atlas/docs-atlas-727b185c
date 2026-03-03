@@ -1,0 +1,128 @@
+---
+title: 'deleteDocument'
+description: 'Permanently delete a collaborative document'
+---
+
+## Function Signature
+
+```typescript
+export const deleteDocument = async (roomId: string) => Promise<void>
+```
+
+Permanently deletes a collaborative document room. Requires write permissions and automatically redirects to the home page after successful deletion.
+
+## Parameters
+
+<ParamField path="roomId" type="string" required>
+  The unique identifier of the document room to delete.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="void" type="void">
+  This function does not return a value. On success, it redirects to the home page (`/`).
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { deleteDocument } from '@/lib/actions/room.actions';
+
+const handleDeleteDocument = async (roomId: string) => {
+  try {
+    await deleteDocument(roomId);
+    // User will be automatically redirected to '/'
+  } catch (error) {
+    console.error('Failed to delete document:', error);
+  }
+};
+
+// Example usage
+await handleDeleteDocument('room_abc123');
+```
+
+## Error Handling
+
+The function enforces strict permission requirements before allowing deletion:
+
+<Warning>
+  **Authentication Required**: User must be authenticated to delete documents.
+</Warning>
+
+```typescript
+// Error: "Unauthorized to delete document"
+if (!currentEmail) {
+  throw new Error('Unauthorized to delete document');
+}
+```
+
+<Warning>
+  **Write Permission Required**: User must have `room:write` access to delete the document.
+</Warning>
+
+```typescript
+// Error: "Insufficient permissions to delete document"
+const access = room.usersAccesses[currentEmail] ?? [];
+if (!access.includes('room:write')) {
+  throw new Error('Insufficient permissions to delete document');
+}
+```
+
+## Behavior
+
+<Warning>
+  **Destructive Operation**: This action is irreversible. Once a document is deleted, all content and collaborator access is permanently removed.
+</Warning>
+
+<Note>
+  After successful deletion, the function:
+  1. Revalidates the root path (`/`) to update the documents list
+  2. Automatically redirects the user to the home page
+</Note>
+
+## Implementation Details
+
+- **Permission Verification**: Checks for write access before allowing deletion
+- **Permanent Deletion**: Removes the room and all associated data from Liveblocks
+- **Automatic Redirect**: Uses Next.js `redirect()` to navigate to `/` after deletion
+- **Cache Revalidation**: Calls `revalidatePath('/')` to update the documents list
+
+## Side Effects
+
+```typescript
+await liveblocks.deleteRoom(roomId);
+revalidatePath('/');
+redirect('/');
+```
+
+The function performs three sequential operations:
+1. Deletes the room from Liveblocks
+2. Revalidates the cache for the home page
+3. Redirects the user to the home page
+
+## Permission Requirements
+
+<Note>
+  Only users with `room:write` permissions can delete documents. This typically includes:
+  - Document creator (owner)
+  - Collaborators with editor access
+  
+  Viewers with `room:read` access cannot delete documents.
+</Note>
+
+## Related Functions
+
+- [`createDocument`](/api/room/create-document) - Create a new document
+- [`getDocument`](/api/room/get-document) - Retrieve a document
+- [`updateDocument`](/api/room/update-document) - Update document metadata
+- [`removeCollaborator`](/api/room/remove-collaborator) - Remove a collaborator
+
+## Related Types
+
+```typescript
+declare type AccessType = ["room:write"] | ["room:read", "room:presence:write"];
+```
+
+## Source
+
+Defined in `lib/actions/room.actions.ts:201`

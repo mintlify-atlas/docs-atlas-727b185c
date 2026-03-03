@@ -1,0 +1,137 @@
+---
+title: 'CollaborativeRoom'
+description: 'A real-time collaborative document editing room with Liveblocks integration'
+---
+
+## Overview
+
+The `CollaborativeRoom` component provides a complete collaborative editing experience with real-time presence, document title editing, and access control. It wraps the Editor component with Liveblocks RoomProvider for real-time synchronization.
+
+## Props
+
+<ParamField path="roomId" type="string" required>
+  Unique identifier for the Liveblocks room. Used to connect collaborators to the same document.
+</ParamField>
+
+<ParamField path="roomMetadata" type="RoomMetadata" required>
+  Metadata about the room containing:
+  - `creatorId` (string): User ID of the document creator
+  - `email` (string): Email of the creator
+  - `title` (string): Document title
+</ParamField>
+
+<ParamField path="users" type="User[]" required>
+  Array of users who have access to the document. Each user object contains:
+  - `id` (string): Unique user identifier
+  - `name` (string): User's display name
+  - `email` (string): User's email address
+  - `avatar` (string): URL to user's avatar image
+  - `color` (string): User's assigned color for presence indicators
+  - `userType` (UserType): Optional access level ('creator' | 'editor' | 'viewer')
+</ParamField>
+
+<ParamField path="currentUserType" type="UserType" required>
+  Access level of the current user. Determines editing permissions:
+  - `'creator'`: Full access including deletion
+  - `'editor'`: Can edit document and title
+  - `'viewer'`: Read-only access
+</ParamField>
+
+## Features
+
+- **Real-time Collaboration**: Powered by Liveblocks for synchronized editing
+- **Editable Document Title**: Editors can click to edit the document title
+- **Auto-save**: Title changes save on Enter key or when clicking outside
+- **Access Control**: UI adapts based on user permissions
+- **Active Collaborators**: Shows who's currently in the document
+- **Share Modal**: Invite collaborators with specific permissions
+
+## Usage Example
+
+```tsx
+import CollaborativeRoom from '@/components/CollaborativeRoom';
+
+function DocumentPage({ params }: { params: { id: string } }) {
+  // Fetch room data, metadata, users, and current user type
+  const roomId = params.id;
+  const roomMetadata = {
+    creatorId: 'user_123',
+    email: 'creator@example.com',
+    title: 'My Document'
+  };
+  const users = [
+    {
+      id: 'user_123',
+      name: 'John Doe',
+      email: 'john@example.com',
+      avatar: '/avatars/john.jpg',
+      color: '#FF6B6B',
+      userType: 'editor'
+    }
+  ];
+  const currentUserType = 'editor';
+
+  return (
+    <CollaborativeRoom
+      roomId={roomId}
+      roomMetadata={roomMetadata}
+      users={users}
+      currentUserType={currentUserType}
+    />
+  );
+}
+```
+
+## TypeScript Interface
+
+```typescript
+type CollaborativeRoomProps = {
+  roomId: string;
+  roomMetadata: RoomMetadata;
+  users: User[];
+  currentUserType: UserType;
+};
+
+type RoomMetadata = {
+  creatorId: string;
+  email: string;
+  title: string;
+};
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  color: string;
+  userType?: UserType;
+};
+
+type UserType = 'creator' | 'editor' | 'viewer';
+```
+
+## Component Structure
+
+The component renders:
+
+1. **RoomProvider**: Liveblocks room context
+2. **Header**: Contains logo, document title, collaborators, and share button
+3. **Document Title Input**: Editable when user is an editor
+4. **ActiveCollaborators**: Shows real-time presence
+5. **ShareModal**: For managing document access
+6. **Editor**: The main document editing area
+
+## Permissions Behavior
+
+| Feature | Creator | Editor | Viewer |
+|---------|---------|--------|--------|
+| Edit Document | ✓ | ✓ | ✗ |
+| Edit Title | ✓ | ✓ | ✗ |
+| Share Document | ✓ | ✓ | ✗ |
+| Delete Document | ✓ | ✗ | ✗ |
+
+## Related Components
+
+- [Editor](/api/components/editor) - The rich text editor component
+- [Header](/api/components/header) - Header wrapper component
+- [ShareModal](/api/components/share-modal) - Document sharing modal

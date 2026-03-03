@@ -1,0 +1,294 @@
+---
+title: 'Lexical Editor Integration'
+description: 'Learn how the Lexical editor framework powers the collaborative editing experience'
+---
+
+## Overview
+
+Lexical is the core text editor framework that provides rich text editing capabilities. Combined with Liveblocks, it enables real-time collaborative editing with a powerful plugin system.
+
+## Installation
+
+The project uses Lexical and its React bindings:
+
+```json package.json
+"@lexical/react": "^0.16.1",
+"lexical": "^0.16.1"
+```
+
+Install the packages:
+
+```bash
+npm install lexical @lexical/react
+```
+
+## Editor Setup
+
+The editor is initialized in `components/editor/Editor.tsx`:
+
+```tsx components/editor/Editor.tsx
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { HeadingNode } from '@lexical/rich-text';
+import { liveblocksConfig } from '@liveblocks/react-lexical'
+
+export function Editor({ roomId, currentUserType }: { roomId: string, currentUserType: UserType }) {
+  const initialConfig = liveblocksConfig({
+    namespace: 'Editor',
+    nodes: [HeadingNode],
+    onError: (error: Error) => {
+      console.error(error);
+      throw error;
+    },
+    theme: Theme,
+    editable: currentUserType === 'editor',
+  });
+
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      <div className="editor-container size-full">
+        <RichTextPlugin
+          contentEditable={
+            <ContentEditable className="editor-input h-full" />
+          }
+          placeholder={<Placeholder />}
+          ErrorBoundary={LexicalErrorBoundary}
+        />
+        <HistoryPlugin />
+        <AutoFocusPlugin />
+      </div>
+    </LexicalComposer>
+  );
+}
+```
+
+## Core Plugins
+
+The editor uses several built-in and custom plugins:
+
+### Built-in Plugins
+
+<Steps>
+  <Step title="RichTextPlugin">
+    Enables rich text editing with formatting:
+
+    ```tsx
+    <RichTextPlugin
+      contentEditable={<ContentEditable className="editor-input h-full" />}
+      placeholder={<Placeholder />}
+      ErrorBoundary={LexicalErrorBoundary}
+    />
+    ```
+
+    Provides the editable content area and error handling.
+  </Step>
+
+  <Step title="HistoryPlugin">
+    Adds undo/redo functionality:
+
+    ```tsx
+    <HistoryPlugin />
+    ```
+
+    Automatically manages the edit history stack for undo/redo operations.
+  </Step>
+
+  <Step title="AutoFocusPlugin">
+    Automatically focuses the editor on load:
+
+    ```tsx
+    <AutoFocusPlugin />
+    ```
+
+    Improves UX by focusing the editor when the page loads.
+  </Step>
+</Steps>
+
+### Custom Plugins
+
+#### ToolbarPlugin
+
+Provides text formatting controls at `components/editor/plugins/ToolbarPlugin.tsx`:
+
+```tsx
+export default function ToolbarPlugin() {
+  const [editor] = useLexicalComposerContext();
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [isBold, setIsBold] = useState(false);
+  const [isItalic, setIsItalic] = useState(false);
+  const [isUnderline, setIsUnderline] = useState(false);
+  const [isStrikethrough, setIsStrikethrough] = useState(false);
+  const activeBlock = useActiveBlock();
+
+  return (
+    <div className="toolbar">
+      {/* Undo/Redo buttons */}
+      <button onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
+        <i className="format undo" />
+      </button>
+      <button onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
+        <i className="format redo" />
+      </button>
+
+      {/* Heading buttons */}
+      <button onClick={() => editor.update(() => toggleBlock('h1'))}>
+        <i className="format h1" />
+      </button>
+      
+      {/* Text formatting */}
+      <button onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')}>
+        <i className="format bold" />
+      </button>
+
+      {/* Alignment */}
+      <button onClick={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left')}>
+        <i className="format left-align" />
+      </button>
+    </div>
+  );
+}
+```
+
+**Features:**
+- Undo/Redo controls
+- Heading levels (H1, H2, H3)
+- Text formatting (Bold, Italic, Underline, Strikethrough)
+- Text alignment (Left, Center, Right, Justify)
+
+#### FloatingToolbarPlugin
+
+Shows a floating toolbar on text selection at `components/editor/plugins/FloatingToolbarPlugin.tsx`:
+
+```tsx
+export default function FloatingToolbar() {
+  const [editor] = useLexicalComposerContext();
+  const [range, setRange] = useState<Range | null>(null);
+
+  useEffect(() => {
+    editor.registerUpdateListener(({ tags }) => {
+      return editor.getEditorState().read(() => {
+        // Ignore selection updates related to collaboration
+        if (tags.has('collaboration')) return;
+
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection) || selection.isCollapsed()) {
+          setRange(null);
+          return;
+        }
+
+        const { anchor, focus } = selection;
+        const range = createDOMRange(
+          editor,
+          anchor.getNode(),
+          anchor.offset,
+          focus.getNode(),
+          focus.offset,
+        );
+
+        setRange(range);
+      });
+    });
+  }, [editor]);
+
+  return range && <Toolbar range={range} />;
+}
+```
+
+**Features:**
+- Appears when text is selected
+- Integrates with Liveblocks comments
+- Uses `@floating-ui/react-dom` for positioning
+- Opens comment composer via `OPEN_FLOATING_COMPOSER_COMMAND`
+
+<Note>
+  The floating toolbar ignores selection changes tagged with 'collaboration' to prevent interference with other users' selections.
+</Note>
+
+## Real-Time Collaboration
+
+### Liveblocks Integration
+
+The editor uses `liveblocksConfig` instead of the standard Lexical config:
+
+```tsx
+import { liveblocksConfig, LiveblocksPlugin } from '@liveblocks/react-lexical'
+
+const initialConfig = liveblocksConfig({
+  namespace: 'Editor',
+  nodes: [HeadingNode],
+  theme: Theme,
+  editable: currentUserType === 'editor',
+});
+```
+
+This enables:
+- Conflict-free collaborative editing
+- Real-time cursor tracking
+- Presence awareness
+- Comment threads
+
+### Editor Status
+
+The editor displays a loader while connecting:
+
+```tsx
+import { useEditorStatus } from '@liveblocks/react-lexical'
+
+const status = useEditorStatus();
+
+{status === 'not-loaded' || status === 'loading' ? (
+  <Loader />
+) : (
+  <div className="editor-inner">
+    {/* Editor content */}
+  </div>
+)}
+```
+
+## Permissions
+
+Editor editability is controlled by user type:
+
+<CodeGroup>
+```tsx Editor Permission
+editable: currentUserType === 'editor'
+```
+
+```tsx Conditional Features
+{currentUserType === 'editor' && <FloatingToolbarPlugin />}
+{currentUserType === 'editor' && <DeleteModal roomId={roomId} />}
+```
+</CodeGroup>
+
+Viewers can see content but cannot edit or access editing tools.
+
+## Custom Nodes
+
+The editor supports custom node types:
+
+```tsx
+import { HeadingNode } from '@lexical/rich-text';
+
+nodes: [HeadingNode]
+```
+
+Additional nodes can be added for:
+- Lists
+- Links
+- Images
+- Code blocks
+- Custom elements
+
+## Theme Configuration
+
+The editor uses a custom theme defined in `components/editor/plugins/Theme.tsx` for consistent styling across the application.
+
+## Related Integrations
+
+- [Liveblocks](/integrations/liveblocks) - Enables real-time collaboration features
+- [Clerk](/integrations/clerk) - Provides user authentication for editor access

@@ -1,0 +1,168 @@
+---
+title: 'Editor'
+description: 'Rich text editor component powered by Lexical and Liveblocks'
+---
+
+## Overview
+
+The `Editor` component provides a rich text editing experience with real-time collaboration features. Built on Lexical editor framework and integrated with Liveblocks for collaborative editing, comments, and threads.
+
+## Props
+
+<ParamField path="roomId" type="string" required>
+  The Liveblocks room identifier. Must match the parent RoomProvider's room ID.
+</ParamField>
+
+<ParamField path="currentUserType" type="UserType" required>
+  Determines if the editor is editable:
+  - `'editor'` or `'creator'`: Full editing capabilities with toolbar
+  - `'viewer'`: Read-only mode, editing disabled
+</ParamField>
+
+## Features
+
+- **Rich Text Editing**: Full-featured text editor with formatting options
+- **Real-time Collaboration**: Multiple users can edit simultaneously
+- **Comments & Threads**: Floating comments with threaded discussions
+- **Toolbar**: Formatting controls (visible only to editors)
+- **Floating Toolbar**: Context-aware formatting on text selection
+- **Auto-save**: Changes automatically synchronized via Liveblocks
+- **History**: Undo/redo support
+- **Loading States**: Graceful loading experience
+
+## Usage Example
+
+```tsx
+import { Editor } from '@/components/editor/Editor';
+import { RoomProvider } from '@liveblocks/react/suspense';
+
+function DocumentEditor() {
+  return (
+    <RoomProvider id="room_abc123">
+      <Editor 
+        roomId="room_abc123" 
+        currentUserType="editor" 
+      />
+    </RoomProvider>
+  );
+}
+```
+
+### Read-only Mode
+
+```tsx
+<Editor 
+  roomId="room_abc123" 
+  currentUserType="viewer" 
+/>
+```
+
+## TypeScript Interface
+
+```typescript
+type EditorProps = {
+  roomId: string;
+  currentUserType: UserType;
+};
+
+type UserType = 'creator' | 'editor' | 'viewer';
+```
+
+## Editor Configuration
+
+The editor uses Liveblocks configuration with:
+
+```typescript
+const initialConfig = liveblocksConfig({
+  namespace: 'Editor',
+  nodes: [HeadingNode],
+  onError: (error: Error) => {
+    console.error(error);
+    throw error;
+  },
+  theme: Theme,
+  editable: currentUserType === 'editor',
+});
+```
+
+## Plugins Included
+
+### Core Plugins
+
+- **RichTextPlugin**: Enables rich text editing capabilities
+- **HistoryPlugin**: Undo/redo functionality
+- **AutoFocusPlugin**: Automatically focuses editor on mount
+
+### Liveblocks Plugins
+
+- **LiveblocksPlugin**: Enables real-time collaboration
+- **FloatingComposer**: Create new comment threads
+- **FloatingThreads**: Display and interact with comment threads
+- **Comments**: Comment sidebar and management
+
+### Custom Plugins
+
+- **ToolbarPlugin**: Main formatting toolbar
+- **FloatingToolbarPlugin**: Context menu on text selection (editors only)
+- **DeleteModal**: Document deletion (editors only)
+
+## Component Layout
+
+```
+┌─────────────────────────────────┐
+│ Toolbar + Delete Modal          │
+├─────────────────────────────────┤
+│                                 │
+│   Editor Content Area           │
+│   (800px max width)             │
+│                                 │
+│   - Rich text editing           │
+│   - Floating toolbar            │
+│   - Comment threads             │
+│                                 │
+├─────────────────────────────────┤
+│ Liveblocks Features:            │
+│ - FloatingComposer (350px)      │
+│ - FloatingThreads               │
+│ - Comments sidebar              │
+└─────────────────────────────────┘
+```
+
+## Editor States
+
+The component handles different editor states:
+
+- **not-loaded**: Initial state, shows loader
+- **loading**: Loading editor content, shows loader
+- **ready**: Editor fully loaded and interactive
+- **synchronizing**: Syncing changes (seamless to user)
+
+## Access Control
+
+| Feature | Editor/Creator | Viewer |
+|---------|----------------|--------|
+| Edit Text | ✓ | ✗ |
+| Format Text | ✓ | ✗ |
+| Toolbar Access | ✓ | ✗ |
+| Floating Toolbar | ✓ | ✗ |
+| Delete Document | ✓ | ✗ |
+| View Comments | ✓ | ✓ |
+| Add Comments | ✓ | ✓ |
+
+## Styling
+
+The editor uses custom CSS classes:
+
+- `.editor-container`: Main container
+- `.toolbar-wrapper`: Toolbar wrapper with flex layout
+- `.editor-wrapper`: Content wrapper
+- `.editor-inner`: Content area (max-width: 800px, min-height: 1100px)
+- `.editor-input`: Contenteditable area
+- `.editor-placeholder`: Placeholder text styling
+
+## Related Components
+
+- [CollaborativeRoom](/api/components/collaborative-room) - Parent wrapper component
+- ToolbarPlugin - Main formatting toolbar
+- FloatingToolbarPlugin - Selection-based formatting
+- Comments - Comment management

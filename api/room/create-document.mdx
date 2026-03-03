@@ -1,0 +1,110 @@
+---
+title: 'createDocument'
+description: 'Create a new collaborative document with Liveblocks'
+---
+
+## Function Signature
+
+```typescript
+export const createDocument = async ({ userId, email }: CreateDocumentParams) => Promise<Room | undefined>
+```
+
+Creates a new collaborative document room with the specified user as the owner. The document is initialized with write access for the creator and a default "Untitled" title.
+
+## Parameters
+
+<ParamField path="userId" type="string" required>
+  The unique identifier of the user creating the document. Must match the creator's ID.
+</ParamField>
+
+<ParamField path="email" type="string" required>
+  The email address of the user creating the document. Must match the authenticated user's email.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="room" type="Room | undefined">
+  Returns the created room object with metadata and access configuration, or undefined if an error occurs.
+  
+  <Expandable title="Room Properties">
+    <ResponseField name="id" type="string">
+      Unique room identifier (generated using nanoid)
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="RoomMetadata">
+      Room metadata containing:
+      - `creatorId`: User ID of the document creator
+      - `email`: Creator's email address
+      - `title`: Document title (defaults to "Untitled")
+    </ResponseField>
+    
+    <ResponseField name="usersAccesses" type="RoomAccesses">
+      Access control mapping. Creator receives `['room:write']` permissions.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { createDocument } from '@/lib/actions/room.actions';
+
+const handleCreateDocument = async () => {
+  const newDocument = await createDocument({
+    userId: 'user_2abc123',
+    email: 'user@example.com'
+  });
+  
+  if (newDocument) {
+    console.log('Document created:', newDocument.id);
+  }
+};
+```
+
+## Error Handling
+
+The function handles several error cases:
+
+<Warning>
+  **Unauthorized Access**: Throws an error if the authenticated user's email doesn't match the provided email parameter.
+</Warning>
+
+```typescript
+// Error: "Unauthorized to create document"
+if (!currentEmail || currentEmail !== email) {
+  throw new Error('Unauthorized to create document');
+}
+```
+
+<Note>
+  The function automatically revalidates the root path (`/`) after successful document creation to update the documents list.
+</Note>
+
+## Implementation Details
+
+- **Room ID Generation**: Uses `nanoid()` to generate unique room identifiers
+- **Default Access**: Creator receives write permissions (`['room:write']`)
+- **Default Title**: New documents are created with the title "Untitled"
+- **Cache Revalidation**: Automatically revalidates `/` path using Next.js `revalidatePath`
+
+## Related Types
+
+```typescript
+declare type CreateDocumentParams = {
+  userId: string;
+  email: string;
+};
+
+declare type RoomMetadata = {
+  creatorId: string;
+  email: string;
+  title: string;
+};
+
+declare type RoomAccesses = Record<string, AccessType>;
+declare type AccessType = ["room:write"] | ["room:read", "room:presence:write"];
+```
+
+## Source
+
+Defined in `lib/actions/room.actions.ts:20`

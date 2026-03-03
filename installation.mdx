@@ -1,0 +1,234 @@
+---
+title: Installation
+description: Set up Collaborative Editor on your local machine
+---
+
+# Installation guide
+
+Get the Collaborative Editor up and running on your local development environment.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js** 20.x or higher
+- **npm**, **yarn**, or **pnpm** package manager
+- **Git** for cloning the repository
+- A **Clerk** account (for authentication)
+- A **Liveblocks** account (for real-time collaboration)
+
+## Clone the repository
+
+First, clone the project repository to your local machine:
+
+```bash
+git clone <repository-url>
+cd junaid_live_docs
+```
+
+## Install dependencies
+
+Install all required packages using your preferred package manager:
+
+<CodeGroup>
+```bash npm
+npm install
+```
+
+```bash yarn
+yarn install
+```
+
+```bash pnpm
+pnpm install
+```
+</CodeGroup>
+
+This will install all dependencies including:
+
+- **@clerk/nextjs** (v5.2.4) - Authentication
+- **@liveblocks/client** (v2.3.0) - Real-time collaboration
+- **@liveblocks/react** (v2.3.0) - React bindings for Liveblocks
+- **@liveblocks/react-lexical** (v2.3.0) - Lexical editor integration
+- **lexical** (v0.16.1) - Rich text editor framework
+- **next** (v14.2.5) - React framework
+- **tailwindcss** (v3.4.1) - Styling
+
+## Environment setup
+
+Create a `.env.local` file in the root directory to store your environment variables:
+
+```bash
+touch .env.local
+```
+
+Add the following environment variables to your `.env.local` file:
+
+```bash
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+
+# Clerk URLs
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+
+# Liveblocks
+NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY=your_liveblocks_public_key
+LIVEBLOCKS_SECRET_KEY=your_liveblocks_secret_key
+```
+
+### Get your Clerk keys
+
+<Steps>
+  <Step title="Create a Clerk application">
+    1. Go to [clerk.com](https://clerk.com) and sign up or log in
+    2. Create a new application
+    3. Choose "Email" as your authentication method
+  </Step>
+
+  <Step title="Copy your API keys">
+    From your Clerk dashboard:
+    1. Navigate to "API Keys" in the sidebar
+    2. Copy your **Publishable Key** and paste it as `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+    3. Copy your **Secret Key** and paste it as `CLERK_SECRET_KEY`
+  </Step>
+</Steps>
+
+### Get your Liveblocks keys
+
+<Steps>
+  <Step title="Create a Liveblocks project">
+    1. Go to [liveblocks.io](https://liveblocks.io) and sign up or log in
+    2. Create a new project
+    3. Choose a project name
+  </Step>
+
+  <Step title="Copy your API keys">
+    From your Liveblocks dashboard:
+    1. Navigate to "API Keys" in your project settings
+    2. Copy your **Public Key** and paste it as `NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY`
+    3. Copy your **Secret Key** and paste it as `LIVEBLOCKS_SECRET_KEY`
+  </Step>
+</Steps>
+
+<Warning>
+  Never commit your `.env.local` file to version control. It should be listed in your `.gitignore` file.
+</Warning>
+
+## Run the development server
+
+Start the Next.js development server:
+
+<CodeGroup>
+```bash npm
+npm run dev
+```
+
+```bash yarn
+yarn dev
+```
+
+```bash pnpm
+pnpm dev
+```
+</CodeGroup>
+
+The application will start on `http://localhost:3000`.
+
+<Note>
+  The development server supports hot module replacement, so changes to your code will be reflected immediately.
+</Note>
+
+## Verify your installation
+
+To confirm everything is set up correctly:
+
+1. Open `http://localhost:3000` in your browser
+2. You should see the sign-in page
+3. Click "Sign In" and create a test account
+4. After signing in, you should see the documents dashboard
+5. Try creating a new document by clicking "Start a blank document"
+
+## Available scripts
+
+The project includes the following npm scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  }
+}
+```
+
+- **`npm run dev`** - Start the development server with hot reload
+- **`npm run build`** - Build the application for production
+- **`npm run start`** - Start the production server (requires build first)
+- **`npm run lint`** - Run ESLint to check for code quality issues
+
+## Build for production
+
+When you're ready to deploy, build the application:
+
+<CodeGroup>
+```bash npm
+npm run build
+npm run start
+```
+
+```bash yarn
+yarn build
+yarn start
+```
+
+```bash pnpm
+pnpm build
+pnpm start
+```
+</CodeGroup>
+
+This creates an optimized production build in the `.next` directory.
+
+## Troubleshooting
+
+### Module not found errors
+
+If you encounter module resolution errors:
+
+1. Delete `node_modules` and lock files
+2. Reinstall dependencies:
+
+```bash
+rm -rf node_modules package-lock.json yarn.lock pnpm-lock.yaml
+npm install
+```
+
+### Authentication not working
+
+Verify your Clerk environment variables:
+
+- Check that keys are correctly copied without extra spaces
+- Ensure you're using the keys from the correct Clerk application
+- Confirm the sign-in/sign-up URLs match your route structure
+
+### Real-time features not syncing
+
+If collaboration features aren't working:
+
+- Verify your Liveblocks keys are correct
+- Check browser console for WebSocket connection errors
+- Ensure you have a stable internet connection
+- Try refreshing the page or clearing browser cache
+
+## What's next?
+
+Now that you have the application running locally:
+
+- Follow the [quickstart guide](/quickstart) to create your first document
+- Learn about [authentication configuration](/features/authentication)
+- Explore the [integrations](/integrations/liveblocks) to understand how real-time collaboration works
+- Read about [deployment](/guides/deployment) options for production

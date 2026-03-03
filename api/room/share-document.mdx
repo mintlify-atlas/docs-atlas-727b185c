@@ -1,0 +1,195 @@
+---
+title: 'updateDocumentAccess'
+description: 'Grant or update collaborator access to a document'
+---
+
+## Function Signature
+
+```typescript
+export const updateDocumentAccess = async ({ roomId, email, userType, updatedBy }: ShareDocumentParams) => Promise<Room | undefined>
+```
+
+Grants or updates a collaborator's access to a document. Sends an inbox notification to the collaborator and supports different permission levels (editor/viewer).
+
+## Parameters
+
+<ParamField path="roomId" type="string" required>
+  The unique identifier of the document room to share.
+</ParamField>
+
+<ParamField path="email" type="string" required>
+  The email address of the user to grant access to.
+</ParamField>
+
+<ParamField path="userType" type="UserType" required>
+  The permission level to grant. Must be one of:
+  - `"creator"` - Full write access (same as editor)
+  - `"editor"` - Write access (`["room:write"]`)
+  - `"viewer"` - Read-only access (`["room:read", "room:presence:write"]`)
+</ParamField>
+
+<ParamField path="updatedBy" type="User" required>
+  Information about the user granting access, used for the notification.
+  
+  <Expandable title="User Properties">
+    - `id`: User's unique identifier
+    - `name`: User's display name
+    - `email`: User's email address
+    - `avatar`: URL to user's avatar image
+    - `color`: User's assigned color for presence indicators
+  </Expandable>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="room" type="Room | undefined">
+  Returns the updated room object with the new access configuration, or undefined if an error occurs.
+  
+  <Expandable title="Room Properties">
+    <ResponseField name="id" type="string">
+      Unique room identifier
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="RoomMetadata">
+      Room metadata (unchanged by this operation)
+    </ResponseField>
+    
+    <ResponseField name="usersAccesses" type="RoomAccesses">
+      Updated access control mapping including the new collaborator's permissions.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage Example
+
+```typescript
+import { updateDocumentAccess } from '@/lib/actions/room.actions';
+
+const shareDocument = async () => {
+  const updatedRoom = await updateDocumentAccess({
+    roomId: 'room_abc123',
+    email: 'collaborator@example.com',
+    userType: 'editor',
+    updatedBy: {
+      id: 'user_123',
+      name: 'John Doe',
+      email: 'john@example.com',
+      avatar: 'https://example.com/avatar.jpg',
+      color: '#FF5733'
+    }
+  });
+  
+  if (updatedRoom) {
+    console.log('Access granted to:', email);
+  }
+};
+```
+
+## Error Handling
+
+The function enforces strict permission requirements:
+
+<Warning>
+  **Authentication Required**: User must be authenticated to share documents.
+</Warning>
+
+```typescript
+// Error: "Unauthorized to update document access"
+if (!currentEmail) {
+  throw new Error('Unauthorized to update document access');
+}
+```
+
+<Warning>
+  **Write Permission Required**: User must have `room:write` access to grant access to others.
+</Warning>
+
+```typescript
+// Error: "Insufficient permissions to update document access"
+const access = room.usersAccesses[currentEmail] ?? [];
+if (!access.includes('room:write')) {
+  throw new Error('Insufficient permissions to update document access');
+}
+```
+
+## Permission Mapping
+
+The `userType` parameter is converted to access permissions using `getAccessType()`:
+
+```typescript
+const usersAccesses: RoomAccesses = {
+  [email]: getAccessType(userType) as AccessType,
+}
+```
+
+- `"editor"` or `"creator"` → `["room:write"]`
+- `"viewer"` → `["room:read", "room:presence:write"]`
+
+## Notifications
+
+<Note>
+  After successfully granting access, the function automatically sends an inbox notification to the new collaborator.
+</Note>
+
+The notification includes:
+- **Title**: "You have been granted {userType} access to the document by {updatedBy.name}"
+- **User Info**: Name, avatar, and email of the user who granted access
+- **Access Level**: The permission level granted
+- **Room Link**: Associated with the specific document
+
+```typescript
+await liveblocks.triggerInboxNotification({
+  userId: email,
+  kind: '$documentAccess',
+  subjectId: notificationId,
+  activityData: {
+    userType,
+    title: `You have been granted ${userType} access to the document by ${updatedBy.name}`,
+    updatedBy: updatedBy.name,
+    avatar: updatedBy.avatar,
+    email: updatedBy.email
+  },
+  roomId
+});
+```
+
+## Implementation Details
+
+- **Access Verification**: Verifies the requesting user has write access
+- **Notification ID**: Generates unique notification ID using `nanoid()`
+- **Cache Revalidation**: Revalidates `/documents/{roomId}` path
+- **Inbox Integration**: Uses Liveblocks inbox notifications
+
+## Related Functions
+
+- [`removeCollaborator`](/api/room/remove-collaborator) - Remove a collaborator's access
+- [`createDocument`](/api/room/create-document) - Create a new document
+- [`getDocument`](/api/room/get-document) - Retrieve a document
+
+## Related Types
+
+```typescript
+declare type ShareDocumentParams = {
+  roomId: string;
+  email: string;
+  userType: UserType;
+  updatedBy: User;
+};
+
+declare type UserType = "creator" | "editor" | "viewer";
+
+declare type User = {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  color: string;
+  userType?: UserType;
+};
+
+declare type AccessType = ["room:write"] | ["room:read", "room:presence:write"];
+```
+
+## Source
+
+Defined in `lib/actions/room.actions.ts:121`

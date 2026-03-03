@@ -1,0 +1,238 @@
+---
+title: 'ShareModal'
+description: 'Dialog component for managing document collaborators and access permissions'
+---
+
+## Overview
+
+The `ShareModal` component provides a user interface for sharing documents with other users. It allows editors to invite collaborators via email, set their access level, and manage existing collaborators. Built with Shadcn Dialog component and integrated with Liveblocks.
+
+## Props
+
+<ParamField path="roomId" type="string" required>
+  The Liveblocks room identifier for the document being shared.
+</ParamField>
+
+<ParamField path="collaborators" type="User[]" required>
+  Array of users who currently have access to the document. Each user contains:
+  - `id` (string): Unique user identifier
+  - `name` (string): User's display name  
+  - `email` (string): User's email address
+  - `avatar` (string): Avatar image URL
+  - `color` (string): Assigned color for UI
+  - `userType` (UserType): Optional access level
+</ParamField>
+
+<ParamField path="creatorId" type="string" required>
+  User ID of the document creator. Used to determine if collaborators can be removed.
+</ParamField>
+
+<ParamField path="currentUserType" type="UserType" required>
+  Access level of the current user. Only 'editor' and 'creator' types can open and use the share modal.
+</ParamField>
+
+## Features
+
+- **Email Invitation**: Invite users by email address
+- **Access Control**: Set invitee as 'viewer' or 'editor'
+- **Collaborator List**: View all current collaborators
+- **Permission Management**: Update or remove collaborator access
+- **Real-time Updates**: Uses Liveblocks for instant synchronization
+- **Disabled State**: Button disabled for viewers
+
+## Usage Example
+
+### Basic Usage
+
+```tsx
+import ShareModal from '@/components/ShareModal';
+
+function DocumentHeader() {
+  const collaborators = [
+    {
+      id: 'user_123',
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+      avatar: '/avatars/jane.jpg',
+      color: '#4A90E2',
+      userType: 'editor'
+    },
+    {
+      id: 'user_456',
+      name: 'Bob Johnson',
+      email: 'bob@example.com',
+      avatar: '/avatars/bob.jpg',
+      color: '#E24A4A',
+      userType: 'viewer'
+    }
+  ];
+
+  return (
+    <ShareModal
+      roomId="room_abc123"
+      collaborators={collaborators}
+      creatorId="user_789"
+      currentUserType="editor"
+    />
+  );
+}
+```
+
+### In CollaborativeRoom Context
+
+```tsx
+<ShareModal 
+  roomId={roomId}
+  collaborators={users}
+  creatorId={roomMetadata.creatorId}
+  currentUserType={currentUserType}
+/>
+```
+
+## TypeScript Interface
+
+```typescript
+type ShareDocumentDialogProps = {
+  roomId: string;
+  collaborators: User[];
+  creatorId: string;
+  currentUserType: UserType;
+};
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  color: string;
+  userType?: UserType;
+};
+
+type UserType = 'creator' | 'editor' | 'viewer';
+```
+
+## Component Behavior
+
+### Share Button
+
+- Displays share icon with "Share" text on desktop
+- Icon-only on mobile (sm breakpoint)
+- Disabled when `currentUserType` is 'viewer'
+- Blue gradient styling
+
+### Invitation Flow
+
+1. User enters email address
+2. Selects access level (viewer/editor) via UserTypeSelector
+3. Clicks "Invite" button
+4. `updateDocumentAccess` action called
+5. Modal shows loading state during update
+6. Collaborator list updates automatically
+
+### State Management
+
+```typescript
+const [open, setOpen] = useState(false);        // Modal visibility
+const [loading, setLoading] = useState(false);  // Invitation loading
+const [email, setEmail] = useState('');         // Email input
+const [userType, setUserType] = useState<UserType>('viewer'); // Access level
+```
+
+## Modal Structure
+
+```
+┌────────────────────────────────────┐
+│ Manage who can view this project  │
+├────────────────────────────────────┤
+│                                    │
+│ Email address                      │
+│ ┌──────────────┬─────────┬──────┐ │
+│ │ [Email Input]│[Selector]│[Btn] │ │
+│ └──────────────┴─────────┴──────┘ │
+│                                    │
+│ Collaborators:                     │
+│ • Jane Smith (Editor)              │
+│ • Bob Johnson (Viewer)             │
+│                                    │
+└────────────────────────────────────┘
+```
+
+## Sharing Actions
+
+The share handler uses Liveblocks user info:
+
+```typescript
+const shareDocumentHandler = async () => {
+  setLoading(true);
+  
+  await updateDocumentAccess({ 
+    roomId, 
+    email, 
+    userType: userType as UserType, 
+    updatedBy: user.info,  // From useSelf() hook
+  });
+  
+  setLoading(false);
+}
+```
+
+## Access Permissions
+
+| User Type | Can Open Modal | Can Invite | Can Remove |
+|-----------|----------------|------------|------------|
+| Creator   | ✓ | ✓ | ✓ |
+| Editor    | ✓ | ✓ | Limited* |
+| Viewer    | ✗ | ✗ | ✗ |
+
+*Editors can only remove collaborators they added (handled by backend)
+
+## User Type Selector
+
+The `UserTypeSelector` component allows choosing between:
+
+- **Viewer**: Read-only access, can view and comment
+- **Editor**: Full editing access, can modify content and invite others
+
+## Collaborator Component
+
+Each collaborator is rendered using the `Collaborator` component:
+
+```tsx
+<Collaborator 
+  key={collaborator.id}
+  roomId={roomId}
+  creatorId={creatorId}
+  email={collaborator.email}
+  collaborator={collaborator}
+  user={user.info}
+/>
+```
+
+This component shows:
+- Avatar and name
+- Email address
+- Current access level
+- Remove button (if permitted)
+
+## Styling
+
+Key CSS classes:
+
+- `.gradient-blue`: Share button styling
+- `.shad-dialog`: Modal container
+- `.share-input`: Email input field
+- `.min-w-4`, `.md:size-5`: Responsive icon sizing
+
+## Dependencies
+
+- **@liveblocks/react**: `useSelf()` hook for current user
+- **Shadcn UI**: Dialog, Button, Input, Label components
+- **UserTypeSelector**: Access level picker
+- **Collaborator**: Individual collaborator list item
+
+## Related Components
+
+- [CollaborativeRoom](/api/components/collaborative-room) - Parent component
+- UserTypeSelector - Access level selector
+- Collaborator - List item for each collaborator
+- [Header](/api/components/header) - Often contains ShareModal

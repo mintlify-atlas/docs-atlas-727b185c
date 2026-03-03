@@ -1,80 +1,189 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with Collaborative Editor in minutes
 ---
 
-## Get started in three steps
+# Quickstart guide
 
-Get your documentation site running locally and make your first customization.
+This guide will help you create your first collaborative document and invite team members to collaborate in real-time.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+Before you begin, make sure you have:
 
-### Step 2: Deploy your changes
+- Completed the [installation](/installation) setup
+- The application running on `http://localhost:3000`
+- A valid email address for authentication
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+## Create your first document
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Steps>
+  <Step title="Sign in to your account">
+    Navigate to `http://localhost:3000` and click the sign-in button. You'll be redirected to the Clerk authentication page.
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```tsx
+    // Authentication is handled by Clerk
+    import { SignIn } from '@clerk/nextjs'
 
-### Step 3: Go live
+    const SignInPage = () => {
+      return (
+        <main className="auth-page">
+          <SignIn />
+        </main>
+      )
+    }
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    Create an account using your email address. After signing in, you'll be redirected to your documents dashboard.
+  </Step>
 
-## Next steps
+  <Step title="Start a blank document">
+    On the home page, click the "Start a blank document" button. This will create a new document and redirect you to the editor.
 
-Now that you have your docs running, explore these key features:
+    ```tsx
+    // Document creation from AddDocumentBtn component
+    const addDocumentHandler = async () => {
+      try {
+        const room = await createDocument({ userId, email });
 
-<CardGroup cols={2}>
+        if(room) router.push(`/documents/${room.id}`);
+      } catch (error) {
+        console.log(error)
+      }
+    }
+    ```
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+    Each document is created with:
+    - A unique room ID (generated using nanoid)
+    - Default title "Untitled"
+    - Full write access for the creator
+    - Your email as the owner
+  </Step>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+  <Step title="Edit your document">
+    You're now in the editor. Start typing to create content. As the document creator, you have full editing capabilities:
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+    - **Format text**: Use the toolbar to apply bold, italic, and other formatting
+    - **Add headings**: Structure your content with heading styles
+    - **Edit title**: Click the edit icon next to the document title to rename it
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+    ```tsx
+    // Title updates are saved automatically
+    const updateTitleHandler = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if(e.key === 'Enter') {
+        setLoading(true);
+        try {
+          if(documentTitle !== roomMetadata.title) {
+            const updatedDocument = await updateDocument(roomId, documentTitle);
+            if(updatedDocument) {
+              setEditing(false);
+            }
+          }
+        } catch (error) {
+          console.error(error);
+        }
+        setLoading(false);
+      }
+    }
+    ```
 
-</CardGroup>
+    <Note>
+      All changes are saved automatically and synced in real-time with Liveblocks.
+    </Note>
+  </Step>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+  <Step title="Invite collaborators">
+    Click the "Share" button in the top-right corner to invite others to your document.
+
+    1. Enter the collaborator's email address
+    2. Select their access level:
+       - **Editor**: Can view and edit the document
+       - **Viewer**: Can only view the document (read-only)
+    3. Click "Invite" to send the invitation
+
+    ```tsx
+    // Sharing logic from ShareModal component
+    const shareDocumentHandler = async () => {
+      setLoading(true);
+      await updateDocumentAccess({ 
+        roomId, 
+        email, 
+        userType: userType as UserType, 
+        updatedBy: user.info,
+      });
+      setLoading(false);
+    }
+    ```
+
+    The invited user will receive an inbox notification and can immediately access the document.
+
+    <Warning>
+      Only users with "editor" permissions can invite new collaborators. Viewers cannot share documents.
+    </Warning>
+  </Step>
+
+  <Step title="Collaborate in real-time">
+    When collaborators join your document, you'll see:
+
+    - **Active collaborators**: Avatar badges showing who's currently viewing the document
+    - **Live cursors**: See where other users are typing in real-time
+    - **Presence indicators**: Know when collaborators join or leave
+
+    Try these collaboration features:
+
+    - **Add comments**: Select text and add threaded comments
+    - **Reply to comments**: Engage in discussions about specific content
+    - **Resolve threads**: Mark comment threads as resolved when addressed
+
+    ```tsx
+    // Comments are rendered with Liveblocks components
+    const Comments = () => {
+      const { threads } = useThreads();
+      return (
+        <div className="comments-container">
+          <Composer className="comment-composer" />
+          {threads.map((thread) => (
+            <ThreadWrapper key={thread.id} thread={thread} />
+          ))}
+        </div>
+      )
+    }
+    ```
+  </Step>
+</Steps>
+
+## What's next?
+
+Now that you've created your first collaborative document, explore more features:
+
+- Learn about [permission levels](/features/permissions) and access control
+- Understand the [document lifecycle](/features/document-management) from creation to deletion
+- Explore [real-time features](/features/real-time-collaboration) like presence and comments
+- Configure [authentication settings](/features/authentication) for your organization
+
+## Common actions
+
+### Delete a document
+
+Only the document creator or users with editor permissions can delete documents:
+
+1. Click the delete icon (trash can) in the toolbar
+2. Confirm the deletion in the modal dialog
+3. You'll be redirected to the home page
+
+### Manage collaborators
+
+From the Share modal, you can:
+
+- View all current collaborators
+- Change a collaborator's permission level
+- Remove collaborators (except yourself)
+- See who created the document
+
+### View all your documents
+
+The home page displays all documents you have access to, showing:
+
+- Document title
+- Creation timestamp (e.g., "Created about 2 hours ago")
+- Quick access to open or delete documents
